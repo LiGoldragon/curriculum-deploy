@@ -12,3 +12,6 @@ skill companions, 27 role packets, and the typed
 same projection and `Visualize` reports its discovered counts without writing.
 
 The external Curriculum repository is an independently pinned data input. Updating its data does not change this runtime's Rust or Nix source.
+
+The `external-data` Nix check exercises the pinned public data input on a
+remote builder. The runtime package itself remains independent of that input.

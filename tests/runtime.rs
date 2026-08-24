@@ -2,15 +2,15 @@ use std::{fs, process::Command};
 
 use tempfile::tempdir;
 
-const DATA_ROOT: &str = "/home/li/wt/github.com/LiGoldragon/Curriculum/curriculum-data-only";
-
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_curriculum-deploy")
 }
 
 fn request(operation: &str, workspace: &std::path::Path) -> String {
+    let data_root = std::env::var("CURRICULUM_TEST_DATA_ROOT")
+        .unwrap_or_else(|_| "/external-fixture-not-configured".into());
     format!(
-        "CurriculumRequest.{{{operation}.{{{DATA_ROOT} {}}}}}",
+        "CurriculumRequest.{{{operation}.{{{data_root} {}}}}}",
         workspace.display()
     )
 }

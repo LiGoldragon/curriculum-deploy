@@ -13,3 +13,8 @@ the previous inventory and removes only its listed stale role files before
 writing the current typed inventory.
 
 The generated harness trees are consumer state. They are not source or package input here.
+
+The flake pins Curriculum as a non-flake input exclusively for its
+`external-data` check. That check passes the input root through the typed CLI
+request and runs on remote builders. The engine package uses its own Cargo-only
+source and has no Curriculum input or closure edge.
