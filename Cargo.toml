@@ -1,0 +1,26 @@
+[package]
+name = "curriculum-deploy"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LiGoldragon/curriculum-deploy"
+description = "Curriculum data deployment runtime."
+publish = false
+
+[[bin]]
+name = "curriculum-deploy"
+path = "src/main.rs"
+
+[dependencies]
+datom = { git = "https://github.com/LiGoldragon/datom", rev = "d47419ef872ab76bfbd6bb4b3e84b62a883a8d31" }
+thiserror = "2"
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "bfea114c96eb548ceae17ab05da9c231a6412ba1" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused = { level = "warn", priority = -1 }
+dead_code = "warn"

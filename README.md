@@ -1,0 +1,14 @@
+# curriculum-deploy
+
+`curriculum-deploy` is the runtime that projects a Curriculum data checkout into a consumer workspace.
+
+It owns the generator, checker, visualizer, templates, and engine-only Nix packaging. It does not contain Curriculum skills, role data, manifests, request files, or generated consumer output.
+
+The executable accepts exactly one inline Datom configuration. Its root operation names the mode, the external Curriculum data root, and the consumer workspace root. It reads no environment variables, current working directory, flags, or request files for configuration.
+
+`CurriculumRequest.{Generate.{data-root workspace-root}}` writes 35 discovered
+skill companions, 27 role packets, and the typed
+`skills/generated-role-outputs.datom` cleanup inventory. `Check` verifies the
+same projection and `Visualize` reports its discovered counts without writing.
+
+The external Curriculum repository is an independently pinned data input. Updating its data does not change this runtime's Rust or Nix source.
