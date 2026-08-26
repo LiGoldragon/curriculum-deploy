@@ -36,8 +36,8 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     let claude_skills = fs::read_dir(workspace.path().join(".claude/skills"))
         .expect("claude skills")
         .count();
-    assert_eq!(agent_skills, 35);
-    assert_eq!(claude_skills, 35);
+    assert_eq!(agent_skills, 36);
+    assert_eq!(claude_skills, 36);
     assert!(
         workspace
             .path()
