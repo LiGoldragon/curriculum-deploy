@@ -230,6 +230,14 @@ impl Deployment {
                     body.clone(),
                 ));
             }
+            if user_only(body) {
+                outputs.push((
+                    PathBuf::from(".agents/skills")
+                        .join(name)
+                        .join("agents/openai.yaml"),
+                    "policy:\n  allow_implicit_invocation: false\n".into(),
+                ));
+            }
         }
         let inventory = GeneratedRoleOutputs {
             paths: self
@@ -276,8 +284,17 @@ impl Deployment {
     fn clean_previous_skills(&self) -> Result<(), Error> {
         for relative in [Path::new(".agents/skills"), Path::new(".claude/skills")] {
             let path = self.safe(relative)?;
-            if path.exists() {
-                fs::remove_dir_all(&path).map_err(|error| Error::Write(path, error))?;
+            if !path.exists() {
+                continue;
+            }
+            for entry in fs::read_dir(&path).map_err(|error| Error::Read(path.clone(), error))? {
+                let entry = entry.map_err(|error| Error::Read(path.clone(), error))?;
+                let skill_path = entry.path().join("SKILL.md");
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if skill_path.is_file() && !self.skills.iter().any(|(known, _)| known == &name) {
+                    let retired = entry.path();
+                    fs::remove_dir_all(&retired).map_err(|error| Error::Write(retired, error))?;
+                }
             }
         }
         Ok(())
@@ -310,6 +327,12 @@ impl Deployment {
         }
         Ok(self.workspace.join(relative))
     }
+}
+
+fn user_only(body: &str) -> bool {
+    body.strip_prefix("---\n")
+        .and_then(|body| body.split_once("\n---\n"))
+        .is_some_and(|(frontmatter, _)| frontmatter.lines().any(|line| line == "user-only: true"))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

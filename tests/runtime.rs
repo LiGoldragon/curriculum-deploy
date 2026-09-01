@@ -59,12 +59,26 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(main.contains("FLOW_DIRECTORY"));
     assert!(main.contains("THREAD_ID"));
     assert!(main.contains("$child-flow"));
+    assert_eq!(
+        fs::read_to_string(
+            workspace
+                .path()
+                .join(".agents/skills/main-flow/agents/openai.yaml"),
+        )
+        .expect("main-flow invocation policy"),
+        "policy:\n  allow_implicit_invocation: false\n"
+    );
 
     let child = fs::read_to_string(workspace.path().join(".agents/skills/child-flow/SKILL.md"))
         .expect("child-flow role");
-    assert!(child.contains("user-only: true"));
     assert!(child.contains("Pass `FLOW_ID` and `FLOW_DIRECTORY` unchanged"));
     assert!(child.contains("Do not create a lane, index entry, or log."));
+    assert!(
+        !workspace
+            .path()
+            .join(".agents/skills/child-flow/agents/openai.yaml")
+            .exists()
+    );
 
     let evidence = fs::read_to_string(
         workspace
@@ -74,6 +88,12 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     .expect("flow-evidence capability");
     assert!(evidence.contains("named tool or flow will consume one"));
     assert!(evidence.contains("parent-reserved unique path"));
+    assert!(
+        !workspace
+            .path()
+            .join(".agents/skills/flow-evidence/agents/openai.yaml")
+            .exists()
+    );
 
     let roles: Vec<_> = [".claude/agents", ".codex/agents", ".pi/agents"]
         .into_iter()
@@ -122,6 +142,12 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(!stale.exists());
     assert!(!retired_agent_skill.exists());
     assert!(!retired_claude_skill.exists());
+    assert!(
+        workspace
+            .path()
+            .join(".agents/skills/design/agents/openai.yaml")
+            .is_file()
+    );
     let output = Command::new(binary())
         .arg(request("Check", workspace.path()))
         .output()

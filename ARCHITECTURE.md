@@ -18,8 +18,11 @@ contract that a parent brief carries `FLOW_ID`, `FLOW_DIRECTORY`, and
 The runtime has no vendor-harness identity hook and must not invent one.
 
 The generated harness trees are consumer state. They are not source or package input here.
-Generation replaces the runtime-owned `.agents/skills` and `.claude/skills`
-trees, so removed Curriculum sources leave no parallel generated contract.
+Generation removes stale immediate skill directories from `.agents/skills` and
+`.claude/skills`, so removed Curriculum sources leave no parallel generated
+contract. Every `user-only: true` source also projects Codex's
+`allow_implicit_invocation: false` companion beneath its current skill
+directory.
 
 The flake pins Curriculum as a non-flake input exclusively for its
 `external-data` check. That check passes the input root through the typed CLI

@@ -19,6 +19,8 @@ projection replaces `flows` and `subflows` with `main-flow`, `child-flow`, and
 `FLOW_DIRECTORY`, and `THREAD_ID` in each child brief; this runtime does not
 inject those values into a vendor harness.
 
-Generation now replaces the runtime-owned generated skill trees. Do not keep
-manual or retired sources below `.agents/skills` or `.claude/skills`; place
-other instruction sources outside those generated roots.
+Generation removes every stale immediate skill directory from the runtime-owned
+generated trees. It also regenerates Codex invocation-policy companions for
+every current user-only role. Do not keep manual or retired sources below
+`.agents/skills` or `.claude/skills`; place other instruction sources outside
+those generated roots.
