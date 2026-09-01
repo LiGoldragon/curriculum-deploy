@@ -57,7 +57,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(main.contains("user-only: true"));
     assert!(main.contains("FLOW_ID"));
     assert!(main.contains("FLOW_DIRECTORY"));
-    assert!(main.contains("THREAD_ID"));
+    assert!(!main.contains("THREAD_ID"));
     assert!(main.contains("$child-flow"));
     assert_eq!(
         fs::read_to_string(
@@ -72,6 +72,8 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     let child = fs::read_to_string(workspace.path().join(".agents/skills/child-flow/SKILL.md"))
         .expect("child-flow role");
     assert!(child.contains("Pass `FLOW_ID` and `FLOW_DIRECTORY` unchanged"));
+    assert!(child.contains("Obtain the current `THREAD_ID` from the harness after launch."));
+    assert!(child.contains("Use `THREAD_ID` only for transcript and evidence provenance."));
     assert!(child.contains("Do not create a lane, index entry, or log."));
     assert!(
         !workspace
