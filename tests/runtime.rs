@@ -36,8 +36,8 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     let claude_skills = fs::read_dir(workspace.path().join(".claude/skills"))
         .expect("claude skills")
         .count();
-    assert_eq!(agent_skills, 36);
-    assert_eq!(claude_skills, 36);
+    assert_eq!(agent_skills, 38);
+    assert_eq!(claude_skills, 38);
     assert!(
         workspace
             .path()
@@ -50,6 +50,30 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
             .join(".claude/skills/realization/SKILL.md")
             .is_file()
     );
+    assert!(!workspace.path().join("flows").exists());
+
+    let main = fs::read_to_string(workspace.path().join(".agents/skills/main-flow/SKILL.md"))
+        .expect("main-flow role");
+    assert!(main.contains("user-only: true"));
+    assert!(main.contains("FLOW_ID"));
+    assert!(main.contains("FLOW_DIRECTORY"));
+    assert!(main.contains("THREAD_ID"));
+    assert!(main.contains("$child-flow"));
+
+    let child = fs::read_to_string(workspace.path().join(".agents/skills/child-flow/SKILL.md"))
+        .expect("child-flow role");
+    assert!(child.contains("user-only: true"));
+    assert!(child.contains("Pass `FLOW_ID` and `FLOW_DIRECTORY` unchanged"));
+    assert!(child.contains("Do not create a lane, index entry, or log."));
+
+    let evidence = fs::read_to_string(
+        workspace
+            .path()
+            .join(".agents/skills/flow-evidence/SKILL.md"),
+    )
+    .expect("flow-evidence capability");
+    assert!(evidence.contains("named tool or flow will consume one"));
+    assert!(evidence.contains("parent-reserved unique path"));
 
     let roles: Vec<_> = [".claude/agents", ".codex/agents", ".pi/agents"]
         .into_iter()

@@ -12,6 +12,11 @@ inventory is `skills/generated-role-outputs.datom`; each generation realizes
 the previous inventory and removes only its listed stale role files before
 writing the current typed inventory.
 
+Parent-child flow identity is data, not runtime state. `main-flow` emits the
+contract that a parent brief carries `FLOW_ID`, `FLOW_DIRECTORY`, and
+`THREAD_ID`; `child-flow` preserves the first two values for nested children.
+The runtime has no vendor-harness identity hook and must not invent one.
+
 The generated harness trees are consumer state. They are not source or package input here.
 
 The flake pins Curriculum as a non-flake input exclusively for its
