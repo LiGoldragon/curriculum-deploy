@@ -94,6 +94,19 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(inventory.starts_with("GeneratedRoleOutputs.{["));
     assert_eq!(inventory.matches("agents/").count(), 27);
 
+    let retired_agent_skill = workspace.path().join(".agents/skills/flows/SKILL.md");
+    let retired_claude_skill = workspace.path().join(".claude/skills/subflows/SKILL.md");
+    fs::create_dir_all(retired_agent_skill.parent().expect("retired agent parent"))
+        .expect("retired agent skill parent");
+    fs::create_dir_all(
+        retired_claude_skill
+            .parent()
+            .expect("retired Claude parent"),
+    )
+    .expect("retired Claude skill parent");
+    fs::write(&retired_agent_skill, "retired").expect("retired agent skill");
+    fs::write(&retired_claude_skill, "retired").expect("retired Claude skill");
+
     let stale = workspace.path().join(".codex/agents/retired.toml");
     fs::write(&stale, "retired").expect("stale role");
     fs::write(
@@ -107,6 +120,8 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
         .expect("runtime regenerates");
     assert!(output.status.success(), "{output:?}");
     assert!(!stale.exists());
+    assert!(!retired_agent_skill.exists());
+    assert!(!retired_claude_skill.exists());
     let output = Command::new(binary())
         .arg(request("Check", workspace.path()))
         .output()

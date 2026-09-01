@@ -251,6 +251,7 @@ impl Deployment {
         Ok(outputs)
     }
     fn write(&self) -> Result<(), Error> {
+        self.clean_previous_skills()?;
         self.clean_previous_roles()?;
         for (relative, body) in self.outputs()? {
             let path = self.safe(&relative)?;
@@ -268,6 +269,15 @@ impl Deployment {
                 fs::read_to_string(&path).map_err(|error| Error::Read(path.clone(), error))?;
             if actual != expected {
                 return Err(Error::Different(path));
+            }
+        }
+        Ok(())
+    }
+    fn clean_previous_skills(&self) -> Result<(), Error> {
+        for relative in [Path::new(".agents/skills"), Path::new(".claude/skills")] {
+            let path = self.safe(relative)?;
+            if path.exists() {
+                fs::remove_dir_all(&path).map_err(|error| Error::Write(path, error))?;
             }
         }
         Ok(())
