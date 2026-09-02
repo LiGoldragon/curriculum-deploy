@@ -12,11 +12,11 @@ skill companions, 27 role packets, and the typed
 same projection and `Visualize` reports its discovered counts without writing.
 
 The parent-child flow contract is Curriculum data: before its first artifact,
-the parent claims `FLOW_ID` and `FLOW_DIRECTORY` through the installed
-`flow-id` harness helper, then supplies both to each `$child-flow`; nested
-children preserve both values. A child obtains its own `THREAD_ID` after
-launch. The runtime projects that contract but neither invokes nor injects
-identity into a vendor harness.
+the parent claims a normalized hexadecimal `FLOW_ID` and `FLOW_DIRECTORY`
+through the installed `flow-id` harness helper, then supplies both to each
+`$child-flow`; nested children preserve both values. A child obtains its own
+`THREAD_ID` after launch. The runtime projects that contract but neither
+invokes nor injects identity into a vendor harness.
 
 The external Curriculum repository is an independently pinned data input. Updating its data does not change this runtime's Rust or Nix source.
 

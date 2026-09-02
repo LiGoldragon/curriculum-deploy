@@ -59,6 +59,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(main.contains("FLOW_DIRECTORY"));
     assert!(!main.contains("THREAD_ID"));
     assert!(main.contains("flow-id codex --flows-root"));
+    assert!(main.contains("normalized hexadecimal alias"));
     assert!(main.contains("$child-flow"));
     assert_eq!(
         fs::read_to_string(

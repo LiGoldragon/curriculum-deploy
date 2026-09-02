@@ -16,10 +16,10 @@ current-directory default; its only configuration is the inline typed object.
 Update the pinned Curriculum input, then regenerate the consumer. The new
 projection replaces `flows` and `subflows` with `main-flow`, `child-flow`, and
 `flow-evidence`. Before its first artifact, the generated parent contract
-requires the installed `flow-id` helper to claim `FLOW_ID` and
-`FLOW_DIRECTORY`; each child brief carries both values. A child obtains
-`THREAD_ID` from its harness after launch; this runtime does not invoke or
-inject those values into a vendor harness.
+requires the installed `flow-id` helper to claim a normalized hexadecimal
+`FLOW_ID` and `FLOW_DIRECTORY`; each child brief carries both values. A child
+obtains `THREAD_ID` from its harness after launch; this runtime does not invoke
+or inject those values into a vendor harness.
 
 Generation removes every stale immediate skill directory from the runtime-owned
 generated trees. It also regenerates Codex invocation-policy companions for

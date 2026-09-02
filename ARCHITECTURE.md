@@ -13,11 +13,12 @@ the previous inventory and removes only its listed stale role files before
 writing the current typed inventory.
 
 Parent-child flow identity is data, not runtime state. `main-flow` emits the
-contract that the parent claims its alias and lane with the installed
-`flow-id` helper before its first artifact, then carries `FLOW_ID` and
-`FLOW_DIRECTORY` in each child brief. `child-flow` preserves both values for
-nested children and obtains its own `THREAD_ID` after launch. The runtime has
-no vendor-harness identity hook and must not invoke or invent one.
+contract that the parent claims its normalized hexadecimal alias and lane with
+the installed `flow-id` helper before its first artifact, then carries
+`FLOW_ID` and `FLOW_DIRECTORY` in each child brief. `child-flow` preserves
+both values for nested children and obtains its own `THREAD_ID` after launch.
+The runtime has no vendor-harness identity hook and must not invoke or invent
+one.
 
 The generated harness trees are consumer state. They are not source or package input here.
 Generation removes stale immediate skill directories from `.agents/skills` and
