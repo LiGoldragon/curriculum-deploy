@@ -1,28 +1,28 @@
 # Upgrades
 
-## Initial runtime split
+## 0.3.0
 
-Consumers use two pinned public inputs: this runtime flake and the external
-Curriculum data source. Regenerate consumer outputs with a single inline Datom
-configuration carrying the pinned data root, consumer workspace root, and
-requested operation.
+Breaking upgrade from the retired `datom` crate and old protos API to
+the ProtoformStack train: datomic 0.8.0 and protos 0.15.0.
 
-Regenerate all consumer-owned output rather than editing generated files. The
-runtime accepts no flags, request files, environment configuration, or
-current-directory default; its only configuration is the inline typed object.
+### What changed
 
-## Parent-child flow contract
+- Dependency `datom` (github:LiGoldragon/datom) replaced by `datomic`
+  (github:LiGoldragon/datomic).
+- Dependency `protos` updated from bfea114c to 56c683ec.
+- All hand-written DatomRealizing/DatomTextualizing impls replaced by
+  generated Datomic (Corporal + datomize) impls from an ethos Library.
+- Request root changed from `CurriculumRequest.{ Generate.{ ... } }` to
+  `Generate.{ ... }` (the old form is still accepted).
+- Canonical print uses spaced delimiters: `{ a b }` not `{a b}`.
+- generated-role-outputs.datom paths are curly-quoted when they contain
+  separator characters (e.g., `.codex/agents/file.toml`).
+- Curriculum input bumped to 5716f71a (child-flow -> subflow rename).
 
-Update the pinned Curriculum input, then regenerate the consumer. The new
-projection replaces `flows` and `subflows` with `main-flow`, `child-flow`, and
-`flow-evidence`. Before its first artifact, the generated parent contract
-requires the installed `flow-id` helper to claim a normalized hexadecimal
-`FLOW_ID` and `FLOW_DIRECTORY`; each child brief carries both values. A child
-obtains `THREAD_ID` from its harness after launch; this runtime does not invoke
-or inject those values into a vendor harness.
+### How to deploy
 
-Generation removes every stale immediate skill directory from the runtime-owned
-generated trees. It also regenerates Codex invocation-policy companions for
-every current user-only role. Do not keep manual or retired sources below
-`.agents/skills` or `.claude/skills`; place other instruction sources outside
-those generated roots.
+1. Bump primary's `curriculum-deploy` flake input to the new rev.
+2. Ensure primary's `curriculum` input is at 5716f71a or later.
+3. Regenerate: `nix run .#generate-skills 'Generate.{ /path/to/Curriculum /home/li/primary }'`
+   (or with the CurriculumRequest wrapper).
+4. Commit and push the regenerated trees.

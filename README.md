@@ -1,24 +1,40 @@
 # curriculum-deploy
 
-`curriculum-deploy` is the runtime that projects a Curriculum data checkout into a consumer workspace.
+Curriculum data deployment runtime. Projects a Curriculum data checkout into
+a consumer workspace: generates skill companions, role packets, and cleanup
+inventories.
 
-It owns the generator, checker, visualizer, templates, and engine-only Nix packaging. It does not contain Curriculum skills, role data, manifests, request files, or generated consumer output.
+## Version
 
-The executable accepts exactly one inline Datom configuration. Its root operation names the mode, the external Curriculum data root, and the consumer workspace root. It reads no environment variables, current working directory, flags, or request files for configuration.
+0.3.0 (ProtoformStack train)
 
-`CurriculumRequest.{Generate.{data-root workspace-root}}` writes 38 discovered
-skill companions, 27 role packets, and the typed
-`skills/generated-role-outputs.datom` cleanup inventory. `Check` verifies the
-same projection and `Visualize` reports its discovered counts without writing.
+## Usage
 
-The parent-child flow contract is Curriculum data: before its first artifact,
-the parent claims a normalized hexadecimal `FLOW_ID` and `FLOW_DIRECTORY`
-through the installed `flow-id` harness helper, then supplies both to each
-`$child-flow`; nested children preserve both values. A child obtains its own
-`THREAD_ID` after launch. The runtime projects that contract but neither
-invokes nor injects identity into a vendor harness.
+The CLI accepts one inline datom value and no flags:
 
-The external Curriculum repository is an independently pinned data input. Updating its data does not change this runtime's Rust or Nix source.
+```
+curriculum-deploy 'Generate.{ /path/to/curriculum /path/to/workspace }'
+curriculum-deploy 'Check.{ /path/to/curriculum /path/to/workspace }'
+curriculum-deploy 'Visualize.{ /path/to/curriculum /path/to/workspace }'
+```
 
-The `external-data` Nix check exercises the pinned public data input on a
-remote builder. The runtime package itself remains independent of that input.
+The legacy `CurriculumRequest.{ Generate.{ ... } }` wrapper is accepted
+for backward compatibility.
+
+Output is printed as datom on stdout. Faults are printed as datom on stderr.
+
+## Dependencies
+
+| Crate | Version | Rev |
+|---|---|---|
+| protos | 0.15.0 | 56c683ec8d1e |
+| datomic | 0.8.0 | a27f9b8e7789 |
+| ethos-zero | 1.1.0 (dev) | 31c5984c7fda |
+
+## Ethos declaration
+
+The request, output, and role-packet types are declared in
+`curriculum-deploy.ethos` as an ethos Library. The generated Rust module
+`src/generated.rs` is committed and verified fresh by a test that reads
+the ethos file through the ethos-zero library and compares the emitted
+output.
