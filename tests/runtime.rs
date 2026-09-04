@@ -176,3 +176,41 @@ fn cli_accepts_only_one_inline_object() {
         assert!(!output.status.success());
     }
 }
+
+#[test]
+fn skill_conditionals_render_only_for_their_target() {
+    let data = tempdir().expect("data root");
+    let skills = data.path().join("skills");
+    fs::create_dir_all(&skills).expect("skills directory");
+    fs::write(
+        data.path().join("roles.datom"),
+        "Roles.{[] [] [] [] [] [] [] []}",
+    )
+    .expect("empty role data");
+    fs::write(
+        skills.join("commands.md"),
+        "Shared command.\n{% if claude %}\nclaude command\n{% endif %}\n{% if codex %}\ncodex command\n{% endif %}\n",
+    )
+    .expect("conditional skill");
+
+    let workspace = tempdir().expect("workspace");
+    let output = Command::new(binary())
+        .arg(format!(
+            "CurriculumRequest.{{Generate.{{{} {}}}}}",
+            data.path().display(),
+            workspace.path().display()
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(output.status.success(), "{output:?}");
+
+    let claude = fs::read_to_string(workspace.path().join(".claude/skills/commands/SKILL.md"))
+        .expect("Claude skill");
+    assert!(claude.contains("claude command"));
+    assert!(!claude.contains("codex command"));
+
+    let codex = fs::read_to_string(workspace.path().join(".agents/skills/commands/SKILL.md"))
+        .expect("Codex skill");
+    assert!(codex.contains("codex command"));
+    assert!(!codex.contains("claude command"));
+}

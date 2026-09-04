@@ -29,6 +29,11 @@ pub enum Error {
     Different(PathBuf),
     #[error("roles: {0}")]
     Roles(String),
+    #[error("skill template {source_path}: {message}")]
+    Template {
+        source_path: PathBuf,
+        message: String,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -185,9 +190,116 @@ enum Mode {
 }
 struct Deployment {
     workspace: PathBuf,
-    skills: Vec<(String, String)>,
+    skills: Vec<Skill>,
     roles: Vec<RolePacket>,
 }
+struct Skill {
+    name: String,
+    source: PathBuf,
+    body: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SkillTarget {
+    Claude,
+    Codex,
+    Pi,
+}
+
+struct ConditionalBlock {
+    selected: bool,
+    otherwise_seen: bool,
+}
+
+trait SkillBodyRendering {
+    fn rendered(self, body: &str, source: &Path) -> Result<String, Error>;
+}
+
+impl SkillBodyRendering for SkillTarget {
+    fn rendered(self, body: &str, source: &Path) -> Result<String, Error> {
+        let mut rendered = String::new();
+        let mut blocks = Vec::<ConditionalBlock>::new();
+        let mut raw = false;
+
+        for (index, line) in body.split_inclusive('\n').enumerate() {
+            let line_number = index + 1;
+            let directive = line.trim();
+            if raw {
+                if directive == "{% endraw %}" {
+                    raw = false;
+                } else if blocks.iter().all(|block| block.selected) {
+                    rendered.push_str(line);
+                }
+                continue;
+            }
+            let selected = match directive {
+                "{% if claude %}" => Some(self == Self::Claude),
+                "{% if codex %}" => Some(self == Self::Codex),
+                "{% if pi %}" => Some(self == Self::Pi),
+                "{% raw %}" => {
+                    raw = true;
+                    continue;
+                }
+                "{% endraw %}" => {
+                    return Err(Error::Template {
+                        source_path: source.to_path_buf(),
+                        message: format!("line {line_number}: endraw without raw"),
+                    });
+                }
+                "{% else %}" => {
+                    let block = blocks.last_mut().ok_or_else(|| Error::Template {
+                        source_path: source.to_path_buf(),
+                        message: format!("line {line_number}: else without if"),
+                    })?;
+                    if block.otherwise_seen {
+                        return Err(Error::Template {
+                            source_path: source.to_path_buf(),
+                            message: format!("line {line_number}: repeated else"),
+                        });
+                    }
+                    block.selected = !block.selected;
+                    block.otherwise_seen = true;
+                    continue;
+                }
+                "{% endif %}" => {
+                    if blocks.pop().is_none() {
+                        return Err(Error::Template {
+                            source_path: source.to_path_buf(),
+                            message: format!("line {line_number}: endif without if"),
+                        });
+                    }
+                    continue;
+                }
+                _ => None,
+            };
+            if let Some(selected) = selected {
+                blocks.push(ConditionalBlock {
+                    selected,
+                    otherwise_seen: false,
+                });
+                continue;
+            }
+            if blocks.iter().all(|block| block.selected) {
+                rendered.push_str(line);
+            }
+        }
+
+        if !blocks.is_empty() {
+            return Err(Error::Template {
+                source_path: source.to_path_buf(),
+                message: "unclosed if".into(),
+            });
+        }
+        if raw {
+            return Err(Error::Template {
+                source_path: source.to_path_buf(),
+                message: "unclosed raw".into(),
+            });
+        }
+        Ok(rendered)
+    }
+}
+
 impl Deployment {
     fn read(configuration: Configuration) -> Result<Self, Error> {
         let skills_root = configuration.data_root.join("skills");
@@ -202,11 +314,16 @@ impl Deployment {
                     .expect("markdown stem")
                     .to_string_lossy()
                     .into_owned();
-                let body = fs::read_to_string(&path).map_err(|error| Error::Read(path, error))?;
-                Ok((name, body))
+                let body =
+                    fs::read_to_string(&path).map_err(|error| Error::Read(path.clone(), error))?;
+                Ok(Skill {
+                    name,
+                    source: path,
+                    body,
+                })
             })
             .collect::<Result<Vec<_>, Error>>()?;
-        skills.sort_by(|left, right| left.0.cmp(&right.0));
+        skills.sort_by(|left, right| left.name.cmp(&right.name));
         let role_path = configuration.data_root.join("roles.datom");
         let source =
             fs::read_to_string(&role_path).map_err(|error| Error::Read(role_path, error))?;
@@ -223,17 +340,20 @@ impl Deployment {
     }
     fn outputs(&self) -> Result<Vec<(PathBuf, String)>, Error> {
         let mut outputs = Vec::new();
-        for (name, body) in &self.skills {
-            for surface in [".agents/skills", ".claude/skills"] {
+        for skill in &self.skills {
+            for (surface, target) in [
+                (".agents/skills", SkillTarget::Codex),
+                (".claude/skills", SkillTarget::Claude),
+            ] {
                 outputs.push((
-                    PathBuf::from(surface).join(name).join("SKILL.md"),
-                    body.clone(),
+                    PathBuf::from(surface).join(&skill.name).join("SKILL.md"),
+                    target.rendered(&skill.body, &skill.source)?,
                 ));
             }
-            if user_only(body) {
+            if user_only(&skill.body) {
                 outputs.push((
                     PathBuf::from(".agents/skills")
-                        .join(name)
+                        .join(&skill.name)
                         .join("agents/openai.yaml"),
                     "policy:\n  allow_implicit_invocation: false\n".into(),
                 ));
@@ -291,7 +411,7 @@ impl Deployment {
                 let entry = entry.map_err(|error| Error::Read(path.clone(), error))?;
                 let skill_path = entry.path().join("SKILL.md");
                 let name = entry.file_name().to_string_lossy().into_owned();
-                if skill_path.is_file() && !self.skills.iter().any(|(known, _)| known == &name) {
+                if skill_path.is_file() && !self.skills.iter().any(|skill| skill.name == name) {
                     let retired = entry.path();
                     fs::remove_dir_all(&retired).map_err(|error| Error::Write(retired, error))?;
                 }
