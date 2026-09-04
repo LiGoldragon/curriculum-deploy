@@ -25,10 +25,3 @@ a named variant head: `Roles.{ ... }`, `GeneratedRoleOutputs.{ ... }`.
 The `RootReading` and `RootWriting` traits wrap/unwrap this head in
 application code; the generated Datomic impls handle the inner struct.
 
-## Meaning normalization
-
-The Curriculum's roles.datom uses `(...)` parenthesized text for string
-values. The new datom layer reads these as Meaning, not Text. The
-`DatomNormalizing` trait converts Meaning to Text before incorporation.
-This bridge will become unnecessary when the Curriculum data switches to
-curly quotes.

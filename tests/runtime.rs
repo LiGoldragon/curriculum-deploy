@@ -175,33 +175,6 @@ fn cli_accepts_only_one_inline_object() {
 }
 
 #[test]
-fn legacy_curriculum_request_wrapper_is_accepted() {
-    let data = tempdir().expect("data root");
-    let skills = data.path().join("skills");
-    fs::create_dir_all(&skills).expect("skills directory");
-    fs::write(
-        data.path().join("roles.datom"),
-        "Roles.{ [] [] [] [] [] [] [] [] }",
-    )
-    .expect("empty role data");
-    let workspace = tempdir().expect("workspace");
-    let output = Command::new(binary())
-        .arg(format!(
-            "CurriculumRequest.{{ Visualize.{{ {} {} }} }}",
-            data.path().display(),
-            workspace.path().display()
-        ))
-        .output()
-        .expect("legacy wrapper");
-    assert!(output.status.success(), "{output:?}");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("Visualized."),
-        "unexpected output: {stdout}"
-    );
-}
-
-#[test]
 fn skill_conditionals_render_only_for_their_target() {
     let data = tempdir().expect("data root");
     let skills = data.path().join("skills");
@@ -280,4 +253,45 @@ fn format_rust(source: &str) -> Option<String> {
         .status
         .success()
         .then(|| String::from_utf8(output.stdout).ok())?
+}
+
+#[test]
+#[ignore = "requires the externally owned Curriculum data fixture"]
+fn curriculum_roles_round_trip_through_textualize() {
+    let data_root = std::env::var("CURRICULUM_TEST_DATA_ROOT")
+        .unwrap_or_else(|_| "/external-fixture-not-configured".into());
+    let role_path = format!("{data_root}/roles.datom");
+    let source = fs::read_to_string(&role_path).expect("roles.datom");
+
+    use curriculum_deploy::generated::Roles;
+    use datomic::{Corporal, Datom, Datomic, Separator, Textualizable};
+    use protos::{Conceptual, Structural};
+
+    let delineation = source.delineate().expect("delineate");
+    let datom: Datom = delineation.conceive().expect("conceive");
+    let body = match datom {
+        Datom::Variant(head, Separator::Period, Some(body)) if head == "Roles" => *body,
+        other => panic!("expected Roles.{{ ... }}, got: {other:?}"),
+    };
+    let roles = Roles::incorporate(body).expect("incorporate");
+
+    // Textualize and round-trip
+    let datom_out = Datom::Variant(
+        "Roles".to_owned(),
+        Separator::Period,
+        Some(Box::new(roles.datomize())),
+    );
+    let text_out = datom_out.textualize();
+    let delineation2 = text_out.delineate().expect("re-delineate");
+    let datom2: Datom = delineation2.conceive().expect("re-conceive");
+    let body2 = match datom2 {
+        Datom::Variant(head, Separator::Period, Some(body)) if head == "Roles" => *body,
+        other => panic!("round-trip root mismatch: {other:?}"),
+    };
+    let roles2 = Roles::incorporate(body2).expect("re-incorporate");
+    assert_eq!(
+        roles.datomize(),
+        roles2.datomize(),
+        "round trip changed the roles"
+    );
 }

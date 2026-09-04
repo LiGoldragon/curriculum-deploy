@@ -54,7 +54,6 @@ pub(crate) trait RootReading: Corporal<Datom, Fault = datomic::Fault> {
     fn read_root(text: &str) -> Result<Self, datomic::Fault> {
         let delineation = text.to_owned().delineate().map_err(datomic::Fault::from)?;
         let datom: Datom = delineation.conceive()?;
-        let datom = datom.normalize_meaning_to_text();
         match datom {
             Datom::Variant(head, Separator::Period, Some(body)) if head == Self::ROOT => {
                 Self::incorporate(*body)
@@ -127,17 +126,7 @@ fn actualize_request(text: &str) -> Result<Request, Error> {
         .delineate()
         .map_err(DatomFaulting::datom_fault)?;
     let datom: Datom = delineation.conceive().map_err(DatomFaulting::datom_fault)?;
-    // Accept both bare `Generate.{ ... }` and wrapped `CurriculumRequest.{ Generate.{ ... } }`
-    let request_datom = match &datom {
-        Datom::Variant(head, Separator::Period, Some(body)) if head == "CurriculumRequest" => {
-            match body.as_ref() {
-                Datom::Struct(fields) if fields.len() == 1 => fields[0].clone(),
-                _ => *body.clone(),
-            }
-        }
-        _ => datom,
-    };
-    Request::incorporate(request_datom).map_err(DatomFaulting::datom_fault)
+    Request::incorporate(datom).map_err(DatomFaulting::datom_fault)
 }
 
 impl Request {
@@ -441,46 +430,4 @@ fn user_only(body: &str) -> bool {
     body.strip_prefix("---\n")
         .and_then(|body| body.split_once("\n---\n"))
         .is_some_and(|(frontmatter, _)| frontmatter.lines().any(|line| line == "user-only: true"))
-}
-
-/// Normalize datom values for Curriculum data compatibility.
-/// The Curriculum's roles.datom uses parenthesized text `(...)` where the
-/// new datom layer reads Meaning. This normalizer converts Meaning to Text
-/// before incorporation, bridging the syntax change.
-trait DatomNormalizing {
-    fn normalize_meaning_to_text(self) -> Self;
-}
-
-impl DatomNormalizing for Datom {
-    fn normalize_meaning_to_text(self) -> Self {
-        match self {
-            Datom::Meaning(content) => Datom::Text(content),
-            Datom::Variant(head, sep, body) => Datom::Variant(
-                head,
-                sep,
-                body.map(|b| Box::new(b.normalize_meaning_to_text())),
-            ),
-            Datom::Struct(fields) => Datom::Struct(
-                fields
-                    .into_iter()
-                    .map(DatomNormalizing::normalize_meaning_to_text)
-                    .collect(),
-            ),
-            Datom::Vector(items) => Datom::Vector(
-                items
-                    .into_iter()
-                    .map(DatomNormalizing::normalize_meaning_to_text)
-                    .collect(),
-            ),
-            Datom::Map(pairs) => Datom::Map(
-                pairs
-                    .into_iter()
-                    .map(|datomic::Pair(k, v)| {
-                        datomic::Pair(k.normalize_meaning_to_text(), v.normalize_meaning_to_text())
-                    })
-                    .collect(),
-            ),
-            other => other,
-        }
-    }
 }

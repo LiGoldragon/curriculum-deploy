@@ -6,7 +6,7 @@ inventories.
 
 ## Version
 
-0.3.0 (ProtoformStack train)
+0.4.0 (ProtoformStack train)
 
 ## Usage
 
@@ -18,8 +18,6 @@ curriculum-deploy 'Check.{ /path/to/curriculum /path/to/workspace }'
 curriculum-deploy 'Visualize.{ /path/to/curriculum /path/to/workspace }'
 ```
 
-The legacy `CurriculumRequest.{ Generate.{ ... } }` wrapper is accepted
-for backward compatibility.
 
 Output is printed as datom on stdout. Faults are printed as datom on stderr.
 
