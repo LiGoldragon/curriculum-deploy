@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Configuration(pub protos::Text, pub protos::Text);
 impl datomic::Corporal<datomic::Datom> for Configuration {
     type Fault = datomic::Fault;
@@ -34,6 +35,7 @@ impl datomic::Datomic for Configuration {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Request {
     Generate(Configuration),
     Check(Configuration),
@@ -92,9 +94,13 @@ impl datomic::Datomic for Request {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OutputGenerated(pub protos::Integer, pub protos::Integer);
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OutputChecked(pub protos::Integer, pub protos::Integer);
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OutputVisualized(pub protos::Integer, pub protos::Integer);
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Output {
     Generated(OutputGenerated),
     Checked(OutputChecked),
@@ -255,6 +261,7 @@ impl datomic::Datomic for OutputVisualized {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GeneratedRoleOutputs(pub Vec<protos::Text>);
 impl datomic::Corporal<datomic::Datom> for GeneratedRoleOutputs {
     type Fault = datomic::Fault;
@@ -282,6 +289,7 @@ impl datomic::Datomic for GeneratedRoleOutputs {
         datomic::Datom::Struct(vec![datomic::Datomic::datomize(&self.0)])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Provider {
     Claude,
     ChatGpt,
@@ -307,6 +315,7 @@ impl datomic::Datomic for Provider {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Permission {
     Restricted,
     Unrestricted,
@@ -332,6 +341,7 @@ impl datomic::Datomic for Permission {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Effort {
     Low,
     Medium,
@@ -363,6 +373,7 @@ impl datomic::Datomic for Effort {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Surface {
     ClaudeAgent,
     CodexAgent,
@@ -391,6 +402,7 @@ impl datomic::Datomic for Surface {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModelChoice(pub protos::Text, pub Option<Effort>);
 impl datomic::Corporal<datomic::Datom> for ModelChoice {
     type Fault = datomic::Fault;
@@ -426,6 +438,7 @@ impl datomic::Datomic for ModelChoice {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoleModule(pub protos::Text, pub protos::Text);
 impl datomic::Corporal<datomic::Datom> for RoleModule {
     type Fault = datomic::Fault;
@@ -461,6 +474,7 @@ impl datomic::Datomic for RoleModule {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Model(pub protos::Text, pub Provider, pub Vec<Effort>);
 impl datomic::Corporal<datomic::Datom> for Model {
     type Fault = datomic::Fault;
@@ -500,6 +514,7 @@ impl datomic::Datomic for Model {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RolePermission(pub protos::Text, pub protos::Text, pub Permission);
 impl datomic::Corporal<datomic::Datom> for RolePermission {
     type Fault = datomic::Fault;
@@ -539,6 +554,7 @@ impl datomic::Datomic for RolePermission {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoleDepth(pub protos::Text, pub ModelChoice, pub ModelChoice);
 impl datomic::Corporal<datomic::Datom> for RoleDepth {
     type Fault = datomic::Fault;
@@ -578,6 +594,7 @@ impl datomic::Datomic for RoleDepth {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoleDescription(pub protos::Text, pub protos::Text, pub protos::Text);
 impl datomic::Corporal<datomic::Datom> for RoleDescription {
     type Fault = datomic::Fault;
@@ -617,6 +634,7 @@ impl datomic::Datomic for RoleDescription {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoleAlias(
     pub protos::Text,
     pub protos::Text,
@@ -670,6 +688,7 @@ impl datomic::Datomic for RoleAlias {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TargetInsertion(pub protos::Text, pub Surface, pub Vec<protos::Text>);
 impl datomic::Corporal<datomic::Datom> for TargetInsertion {
     type Fault = datomic::Fault;
@@ -709,6 +728,7 @@ impl datomic::Datomic for TargetInsertion {
         ])
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Roles(
     pub Vec<RoleModule>,
     pub Vec<Model>,
