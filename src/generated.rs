@@ -289,7 +289,7 @@ impl datomic::Datomic for GeneratedRoleOutputs {
         datomic::Datom::Struct(vec![datomic::Datomic::datomize(&self.0)])
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Provider {
     Claude,
     ChatGpt,
@@ -315,7 +315,7 @@ impl datomic::Datomic for Provider {
         }
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Permission {
     Restricted,
     Unrestricted,
@@ -341,7 +341,7 @@ impl datomic::Datomic for Permission {
         }
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Effort {
     Low,
     Medium,
@@ -373,7 +373,7 @@ impl datomic::Datomic for Effort {
         }
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Surface {
     ClaudeAgent,
     CodexAgent,
