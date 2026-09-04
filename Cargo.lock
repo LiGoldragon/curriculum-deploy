@@ -16,18 +16,19 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "curriculum-deploy"
-version = "0.2.5"
+version = "0.3.0"
 dependencies = [
- "datom",
+ "datomic",
+ "ethos-zero",
  "protos",
  "tempfile",
  "thiserror",
 ]
 
 [[package]]
-name = "datom"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/datom?rev=d47419ef872ab76bfbd6bb4b3e84b62a883a8d31#d47419ef872ab76bfbd6bb4b3e84b62a883a8d31"
+name = "datomic"
+version = "0.8.0"
+source = "git+https://github.com/LiGoldragon/datomic?rev=a27f9b8e7789#a27f9b8e778935f1fb2ec0011620cf44a96ea81b"
 dependencies = [
  "protos",
 ]
@@ -40,6 +41,19 @@ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
  "windows-sys",
+]
+
+[[package]]
+name = "ethos-zero"
+version = "1.1.0"
+source = "git+https://github.com/LiGoldragon/ethos-zero?rev=31c5984c7fda#31c5984c7fda5baeb65295bef6c33fe3429220e0"
+dependencies = [
+ "datomic",
+ "proc-macro2",
+ "protos",
+ "quote",
+ "syn",
+ "thiserror",
 ]
 
 [[package]]
@@ -88,8 +102,8 @@ dependencies = [
 
 [[package]]
 name = "protos"
-version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/protos?rev=bfea114c96eb548ceae17ab05da9c231a6412ba1#bfea114c96eb548ceae17ab05da9c231a6412ba1"
+version = "0.15.0"
+source = "git+https://github.com/LiGoldragon/protos?rev=56c683ec8d1e#56c683ec8d1ec8f8f80e9e12251fbfd08d27d728"
 
 [[package]]
 name = "quote"

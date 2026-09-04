@@ -1,0 +1,33 @@
+; Curriculum deployment runtime types.
+;
+; The request root is a data enum whose variants are the main operations.
+; No CurriculumRequest wrapper: Generate.{ /curriculum /primary } is the
+; whole request.
+
+Library.{ 0 3 0 }
+
+[ protos:Text ]
+
+[ Configuration.{ Text Text }
+  Request.[ Generate.Configuration Check.Configuration Visualize.Configuration ]
+  Output.[ Generated.{ Integer Integer }
+           Checked.{ Integer Integer }
+           Visualized.{ Integer Integer } ]
+  GeneratedRoleOutputs.{ Vector<Text> }
+  Provider.[ Claude ChatGpt ]
+  Permission.[ Restricted Unrestricted ]
+  Effort.[ Low Medium High Xhigh ]
+  Surface.[ ClaudeAgent CodexAgent PiAgent ]
+  ModelChoice.{ Text Option<Effort> }
+  RoleModule.{ Text Text }
+  Model.{ Text Provider Vector<Effort> }
+  RolePermission.{ Text Text Permission }
+  RoleDepth.{ Text ModelChoice ModelChoice }
+  RoleDescription.{ Text Text Text }
+  RoleAlias.{ Text Text Text Text Vector<Surface> }
+  TargetInsertion.{ Text Surface Vector<Text> }
+  Roles.{ Vector<RoleModule> Vector<Model> Vector<RolePermission> Vector<RoleDepth> Vector<RoleDescription> Vector<RoleAlias> Vector<Text> Vector<TargetInsertion> } ]
+
+[]
+
+[]

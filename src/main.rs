@@ -9,7 +9,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(error) => {
-            eprintln!("curriculum-deploy: {error}");
+            eprintln!("{error}");
             ExitCode::FAILURE
         }
     }

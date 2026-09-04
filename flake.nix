@@ -9,7 +9,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     curriculum = {
-      url = "github:LiGoldragon/Curriculum/4197146f034f5f19263cb4d155c562b7ae4ecb52";
+      url = "github:LiGoldragon/Curriculum/5716f71aae7d0927ed01e02ad0cf2edd9f4aadac";
       flake = false;
     };
   };
@@ -21,9 +21,13 @@
         rust = rust-build.lib.${system}.fromPkgs pkgs;
         inherit (rust) craneLib toolchain;
 
-        # This is Cargo source only. In particular it excludes this flake's
-        # lock file and the external Curriculum input from the engine package.
-        src = rust.cleanSource { root = ./.; };
+        # Cargo source plus the ethos file (needed by the freshness test).
+        ethosFilter = path: type:
+          type == "regular" && pkgs.lib.hasSuffix ".ethos" path;
+        src = rust.cleanSource {
+          root = ./.;
+          extraFilters = [ ethosFilter ];
+        };
         vendor = craneLib.vendorCargoDeps {
           inherit src;
           cargoLock = ./Cargo.lock;

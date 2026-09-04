@@ -3,24 +3,19 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use datom::{
-    DatomFault, DatomProblem, DatomRealizing, DatomRoot, DatomText, DatomTextualizing,
-    PositionAdvancing, RecordPosition,
-};
-use protos::{
-    Block, Head, Headed, Realize, RealizeScope, RealizeScoping, Shape, ShapeDefined, SourceText,
-    TextualizeScope, TextualizeScoping,
-};
+use datomic::{Corporal, Datom, Datomic, Separator, Textualizable};
+use protos::{Conceptual, Structural};
 use thiserror::Error as ThisError;
 
-use crate::roles::{RolePacket, Roles};
+use crate::generated::{GeneratedRoleOutputs, Output, Request, Roles};
+use crate::roles::RolePacket;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
-    #[error("curriculum-deploy accepts exactly one inline Datom object")]
+    #[error("curriculum-deploy accepts exactly one inline Datom request")]
     Argument,
-    #[error("Datom configuration: {0:?}")]
-    Datom(DatomFault),
+    #[error("{0}")]
+    Datom(String),
     #[error("read {0}: {1}")]
     Read(PathBuf, io::Error),
     #[error("write {0}: {1}")]
@@ -36,163 +31,159 @@ pub enum Error {
     },
 }
 
+trait DatomFaulting {
+    fn datom_fault(self) -> Error;
+}
+
+impl DatomFaulting for datomic::Fault {
+    fn datom_fault(self) -> Error {
+        Error::Datom(self.textualize())
+    }
+}
+
+impl DatomFaulting for protos::Fault {
+    fn datom_fault(self) -> Error {
+        Error::Datom(datomic::Fault::from(self).textualize())
+    }
+}
+
+/// Root-head convention: unwrap a named variant head when reading a datom file.
+pub(crate) trait RootReading: Corporal<Datom, Fault = datomic::Fault> {
+    const ROOT: &'static str;
+
+    fn read_root(text: &str) -> Result<Self, datomic::Fault> {
+        let delineation = text.to_owned().delineate().map_err(datomic::Fault::from)?;
+        let datom: Datom = delineation.conceive()?;
+        let datom = datom.normalize_meaning_to_text();
+        match datom {
+            Datom::Variant(head, Separator::Period, Some(body)) if head == Self::ROOT => {
+                Self::incorporate(*body)
+            }
+            other => Err(datomic::Fault::Corporal(
+                vec![],
+                datomic::Problem::Shape(datomic::Expected::Variant, other),
+            )),
+        }
+    }
+}
+
+/// Root-head convention: wrap a named variant head when writing a datom file.
+pub(crate) trait RootWriting: Datomic {
+    const ROOT: &'static str;
+
+    fn write_root(&self) -> String {
+        let datom = Datom::Variant(
+            Self::ROOT.to_owned(),
+            Separator::Period,
+            Some(Box::new(self.datomize())),
+        );
+        datom.textualize()
+    }
+}
+
+impl RootReading for Roles {
+    const ROOT: &'static str = "Roles";
+}
+
+impl RootWriting for Roles {
+    const ROOT: &'static str = "Roles";
+}
+
+impl RootReading for GeneratedRoleOutputs {
+    const ROOT: &'static str = "GeneratedRoleOutputs";
+}
+
+impl RootWriting for GeneratedRoleOutputs {
+    const ROOT: &'static str = "GeneratedRoleOutputs";
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandLine {
     arguments: Vec<String>,
 }
+
 impl CommandLine {
     pub fn from_arguments(arguments: impl IntoIterator<Item = String>) -> Self {
         Self {
             arguments: arguments.into_iter().collect(),
         }
     }
+
     pub fn run(&self) -> Result<String, Error> {
         let [argument] = self.arguments.as_slice() else {
             return Err(Error::Argument);
         };
-        if argument.starts_with('-') || !argument.starts_with("CurriculumRequest.{") {
+        if argument.starts_with('-') {
             return Err(Error::Argument);
         }
-        let request = DatomText::<CurriculumRequest>::from(SourceText(argument.clone()))
-            .realize()
-            .map_err(Error::Datom)?;
+        let request = actualize_request(argument)?;
         request.execute()
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum CurriculumRequest {
-    Generate(Configuration),
-    Check(Configuration),
-    Visualize(Configuration),
-}
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct Configuration {
-    data_root: PathBuf,
-    workspace_root: PathBuf,
-}
-fn fault(problem: DatomProblem) -> DatomFault {
-    DatomFault { problem }
-}
-impl ShapeDefined for CurriculumRequest {
-    type Selection = ();
-    fn shapes() -> &'static [Shape] {
-        &[Shape::DottedBraced]
-    }
-    fn select(shape: Shape, head: Option<&Head>) -> Option<Self::Selection> {
-        (shape == Shape::DottedBraced && head == Some(&Head("CurriculumRequest".into())))
-            .then_some(())
-    }
-}
-impl DatomRoot for CurriculumRequest {
-    fn root_head() -> Head {
-        Head("CurriculumRequest".into())
-    }
-}
-impl DatomRealizing for CurriculumRequest {
-    fn realize_block(scope: &mut RealizeScope<'_>, block: &Block) -> Result<Self, DatomFault> {
-        if Self::select(block.shape, block.head()).is_none() {
-            return Err(fault(DatomProblem::Shape));
+fn actualize_request(text: &str) -> Result<Request, Error> {
+    let delineation = text
+        .to_owned()
+        .delineate()
+        .map_err(DatomFaulting::datom_fault)?;
+    let datom: Datom = delineation.conceive().map_err(DatomFaulting::datom_fault)?;
+    // Accept both bare `Generate.{ ... }` and wrapped `CurriculumRequest.{ Generate.{ ... } }`
+    let request_datom = match &datom {
+        Datom::Variant(head, Separator::Period, Some(body)) if head == "CurriculumRequest" => {
+            match body.as_ref() {
+                Datom::Struct(fields) if fields.len() == 1 => fields[0].clone(),
+                _ => *body.clone(),
+            }
         }
-        let values = scope.realize_body(&mut |child, value| match value.head() {
-            Some(head) if head == &Head("Generate".into()) => {
-                Ok(Self::Generate(Configuration::realize_block(child, value)?))
-            }
-            Some(head) if head == &Head("Check".into()) => {
-                Ok(Self::Check(Configuration::realize_block(child, value)?))
-            }
-            Some(head) if head == &Head("Visualize".into()) => {
-                Ok(Self::Visualize(Configuration::realize_block(child, value)?))
-            }
-            _ => Err(fault(DatomProblem::Shape)),
-        })?;
-        match values.len() {
-            1 => Ok(values.into_iter().next().expect("one value")),
-            0 => Err(fault(DatomProblem::MissingPosition)),
-            _ => Err(fault(DatomProblem::ExtraPosition)),
-        }
-    }
-}
-impl DatomTextualizing for CurriculumRequest {
-    fn textualize_in(&self, scope: &mut TextualizeScope<'_>) -> Result<(), DatomFault> {
-        let (head, configuration) = match self {
-            Self::Generate(value) => ("Generate", value),
-            Self::Check(value) => ("Check", value),
-            Self::Visualize(value) => ("Visualize", value),
-        };
-        scope.textualize_block(Shape::DottedBraced, Some(&Head(head.into())), |body| {
-            configuration.textualize_in(body)
-        })
-    }
-}
-impl DatomRealizing for Configuration {
-    fn realize_block(scope: &mut RealizeScope<'_>, _: &Block) -> Result<Self, DatomFault> {
-        let mut position = RecordPosition::default();
-        let (mut data_root, mut workspace_root) = (None, None);
-        scope.realize_body(&mut |child, value| {
-            match position.next_position() {
-                0 => data_root = Some(PathBuf::realize_block(child, value)?),
-                1 => workspace_root = Some(PathBuf::realize_block(child, value)?),
-                _ => return Err(fault(DatomProblem::ExtraPosition)),
-            };
-            Ok(())
-        })?;
-        Ok(Self {
-            data_root: data_root.ok_or_else(|| fault(DatomProblem::MissingPosition))?,
-            workspace_root: workspace_root.ok_or_else(|| fault(DatomProblem::MissingPosition))?,
-        })
-    }
-}
-impl DatomTextualizing for Configuration {
-    fn textualize_in(&self, scope: &mut TextualizeScope<'_>) -> Result<(), DatomFault> {
-        self.data_root.textualize_in(scope)?;
-        self.workspace_root.textualize_in(scope)
-    }
+        _ => datom,
+    };
+    Request::incorporate(request_datom).map_err(DatomFaulting::datom_fault)
 }
 
-impl CurriculumRequest {
+impl Request {
     fn execute(self) -> Result<String, Error> {
-        let (mode, configuration) = match self {
-            Self::Generate(value) => (Mode::Generate, value),
-            Self::Check(value) => (Mode::Check, value),
-            Self::Visualize(value) => (Mode::Visualize, value),
+        let (mode, data_root, workspace_root) = match self {
+            Self::Generate(c) => (Mode::Generate, PathBuf::from(&c.0), PathBuf::from(&c.1)),
+            Self::Check(c) => (Mode::Check, PathBuf::from(&c.0), PathBuf::from(&c.1)),
+            Self::Visualize(c) => (Mode::Visualize, PathBuf::from(&c.0), PathBuf::from(&c.1)),
         };
-        let deployment = Deployment::read(configuration)?;
-        match mode {
+        let deployment = Deployment::read(data_root, workspace_root)?;
+        let output = match mode {
             Mode::Generate => {
                 deployment.write()?;
-                Ok(format!(
-                    "Generated.{{{} {}}}",
-                    deployment.skills.len(),
-                    deployment.roles.len()
+                Output::Generated(crate::generated::OutputGenerated(
+                    deployment.skills.len() as i64,
+                    deployment.roles.len() as i64,
                 ))
             }
             Mode::Check => {
                 deployment.check()?;
-                Ok(format!(
-                    "Checked.{{{} {}}}",
-                    deployment.skills.len(),
-                    deployment.roles.len()
+                Output::Checked(crate::generated::OutputChecked(
+                    deployment.skills.len() as i64,
+                    deployment.roles.len() as i64,
                 ))
             }
-            Mode::Visualize => Ok(format!(
-                "Visualized.{{{} {}}}",
-                deployment.skills.len(),
-                deployment.roles.len()
+            Mode::Visualize => Output::Visualized(crate::generated::OutputVisualized(
+                deployment.skills.len() as i64,
+                deployment.roles.len() as i64,
             )),
-        }
+        };
+        Ok(output.textualize())
     }
 }
+
 enum Mode {
     Generate,
     Check,
     Visualize,
 }
+
 struct Deployment {
     workspace: PathBuf,
     skills: Vec<Skill>,
     roles: Vec<RolePacket>,
 }
+
 struct Skill {
     name: String,
     source: PathBuf,
@@ -301,8 +292,8 @@ impl SkillBodyRendering for SkillTarget {
 }
 
 impl Deployment {
-    fn read(configuration: Configuration) -> Result<Self, Error> {
-        let skills_root = configuration.data_root.join("skills");
+    fn read(data_root: PathBuf, workspace_root: PathBuf) -> Result<Self, Error> {
+        let skills_root = data_root.join("skills");
         let mut skills = fs::read_dir(&skills_root)
             .map_err(|error| Error::Read(skills_root.clone(), error))?
             .filter_map(Result::ok)
@@ -324,20 +315,18 @@ impl Deployment {
             })
             .collect::<Result<Vec<_>, Error>>()?;
         skills.sort_by(|left, right| left.name.cmp(&right.name));
-        let role_path = configuration.data_root.join("roles.datom");
+        let role_path = data_root.join("roles.datom");
         let source =
             fs::read_to_string(&role_path).map_err(|error| Error::Read(role_path, error))?;
-        let roles = DatomText::<Roles>::from(SourceText(source))
-            .realize()
-            .map_err(Error::Datom)?
-            .packets()
-            .map_err(Error::Roles)?;
+        let roles = Roles::read_root(&source).map_err(DatomFaulting::datom_fault)?;
+        let packets = roles.packets().map_err(Error::Roles)?;
         Ok(Self {
-            workspace: configuration.workspace_root,
+            workspace: workspace_root,
             skills,
-            roles,
+            roles: packets,
         })
     }
+
     fn outputs(&self) -> Result<Vec<(PathBuf, String)>, Error> {
         let mut outputs = Vec::new();
         for skill in &self.skills {
@@ -359,25 +348,20 @@ impl Deployment {
                 ));
             }
         }
-        let inventory = GeneratedRoleOutputs {
-            paths: self
-                .roles
-                .iter()
-                .map(|role| PathBuf::from(&role.path))
-                .collect(),
-        }
-        .textualize_source()
-        .map_err(Error::Datom)?
-        .0;
+        let inventory_paths: Vec<String> =
+            self.roles.iter().map(|role| role.path.clone()).collect();
+        let inventory = GeneratedRoleOutputs(inventory_paths);
+        let inventory_text = inventory.write_root();
         for role in &self.roles {
             outputs.push((PathBuf::from(&role.path), role.text.clone()));
         }
         outputs.push((
             PathBuf::from("skills/generated-role-outputs.datom"),
-            inventory,
+            inventory_text,
         ));
         Ok(outputs)
     }
+
     fn write(&self) -> Result<(), Error> {
         self.clean_previous_skills()?;
         self.clean_previous_roles()?;
@@ -390,6 +374,7 @@ impl Deployment {
         }
         Ok(())
     }
+
     fn check(&self) -> Result<(), Error> {
         for (relative, expected) in self.outputs()? {
             let path = self.safe(&relative)?;
@@ -401,6 +386,7 @@ impl Deployment {
         }
         Ok(())
     }
+
     fn clean_previous_skills(&self) -> Result<(), Error> {
         for relative in [Path::new(".agents/skills"), Path::new(".claude/skills")] {
             let path = self.safe(relative)?;
@@ -419,6 +405,7 @@ impl Deployment {
         }
         Ok(())
     }
+
     fn clean_previous_roles(&self) -> Result<(), Error> {
         let inventory = self.workspace.join("skills/generated-role-outputs.datom");
         if !inventory.exists() {
@@ -426,17 +413,18 @@ impl Deployment {
         }
         let source = fs::read_to_string(&inventory)
             .map_err(|error| Error::Read(inventory.clone(), error))?;
-        let old = DatomText::<GeneratedRoleOutputs>::from(SourceText(source))
-            .realize()
-            .map_err(Error::Datom)?;
-        for relative in old.paths {
-            let path = self.safe(&relative)?;
+        let Ok(old) = GeneratedRoleOutputs::read_root(&source) else {
+            return Ok(());
+        };
+        for relative in &old.0 {
+            let path = self.safe(&PathBuf::from(relative))?;
             if path.exists() {
                 fs::remove_file(&path).map_err(|error| Error::Write(path, error))?;
             }
         }
         Ok(())
     }
+
     fn safe(&self, relative: &Path) -> Result<PathBuf, Error> {
         if relative.is_absolute()
             || relative
@@ -455,46 +443,44 @@ fn user_only(body: &str) -> bool {
         .is_some_and(|(frontmatter, _)| frontmatter.lines().any(|line| line == "user-only: true"))
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct GeneratedRoleOutputs {
-    paths: Vec<PathBuf>,
+/// Normalize datom values for Curriculum data compatibility.
+/// The Curriculum's roles.datom uses parenthesized text `(...)` where the
+/// new datom layer reads Meaning. This normalizer converts Meaning to Text
+/// before incorporation, bridging the syntax change.
+trait DatomNormalizing {
+    fn normalize_meaning_to_text(self) -> Self;
 }
-impl ShapeDefined for GeneratedRoleOutputs {
-    type Selection = ();
-    fn shapes() -> &'static [Shape] {
-        &[Shape::DottedBraced]
-    }
-    fn select(shape: Shape, head: Option<&Head>) -> Option<Self::Selection> {
-        (shape == Shape::DottedBraced && head == Some(&Head("GeneratedRoleOutputs".into())))
-            .then_some(())
-    }
-}
-impl DatomRoot for GeneratedRoleOutputs {
-    fn root_head() -> Head {
-        Head("GeneratedRoleOutputs".into())
-    }
-}
-impl DatomRealizing for GeneratedRoleOutputs {
-    fn realize_block(scope: &mut RealizeScope<'_>, block: &Block) -> Result<Self, DatomFault> {
-        if Self::select(block.shape, block.head()).is_none() {
-            return Err(fault(DatomProblem::Shape));
+
+impl DatomNormalizing for Datom {
+    fn normalize_meaning_to_text(self) -> Self {
+        match self {
+            Datom::Meaning(content) => Datom::Text(content),
+            Datom::Variant(head, sep, body) => Datom::Variant(
+                head,
+                sep,
+                body.map(|b| Box::new(b.normalize_meaning_to_text())),
+            ),
+            Datom::Struct(fields) => Datom::Struct(
+                fields
+                    .into_iter()
+                    .map(DatomNormalizing::normalize_meaning_to_text)
+                    .collect(),
+            ),
+            Datom::Vector(items) => Datom::Vector(
+                items
+                    .into_iter()
+                    .map(DatomNormalizing::normalize_meaning_to_text)
+                    .collect(),
+            ),
+            Datom::Map(pairs) => Datom::Map(
+                pairs
+                    .into_iter()
+                    .map(|datomic::Pair(k, v)| {
+                        datomic::Pair(k.normalize_meaning_to_text(), v.normalize_meaning_to_text())
+                    })
+                    .collect(),
+            ),
+            other => other,
         }
-        let mut paths = None;
-        let mut position = RecordPosition::default();
-        scope.realize_body(&mut |child, value| {
-            match position.next_position() {
-                0 => paths = Some(Vec::<PathBuf>::realize_block(child, value)?),
-                _ => return Err(fault(DatomProblem::ExtraPosition)),
-            };
-            Ok(())
-        })?;
-        Ok(Self {
-            paths: paths.ok_or_else(|| fault(DatomProblem::MissingPosition))?,
-        })
-    }
-}
-impl DatomTextualizing for GeneratedRoleOutputs {
-    fn textualize_in(&self, scope: &mut TextualizeScope<'_>) -> Result<(), DatomFault> {
-        self.paths.textualize_in(scope)
     }
 }

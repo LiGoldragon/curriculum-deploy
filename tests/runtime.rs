@@ -9,10 +9,7 @@ fn binary() -> &'static str {
 fn request(operation: &str, workspace: &std::path::Path) -> String {
     let data_root = std::env::var("CURRICULUM_TEST_DATA_ROOT")
         .unwrap_or_else(|_| "/external-fixture-not-configured".into());
-    format!(
-        "CurriculumRequest.{{{operation}.{{{data_root} {}}}}}",
-        workspace.display()
-    )
+    format!("{operation}.{{ {data_root} {} }}", workspace.display())
 }
 
 #[test]
@@ -60,7 +57,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(!main.contains("THREAD_ID"));
     assert!(main.contains("flow-id codex --flows-root"));
     assert!(main.contains("normalized hexadecimal alias"));
-    assert!(main.contains("$child-flow"));
+    assert!(main.contains("$subflow"));
     assert_eq!(
         fs::read_to_string(
             workspace
@@ -71,16 +68,16 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
         "policy:\n  allow_implicit_invocation: false\n"
     );
 
-    let child = fs::read_to_string(workspace.path().join(".agents/skills/child-flow/SKILL.md"))
-        .expect("child-flow role");
-    assert!(child.contains("Pass `FLOW_ID` and `FLOW_DIRECTORY` unchanged"));
-    assert!(child.contains("Obtain the current `THREAD_ID` from the harness after launch."));
-    assert!(child.contains("Use `THREAD_ID` only for transcript and evidence provenance."));
-    assert!(child.contains("Do not create a lane, index entry, or log."));
+    let subflow = fs::read_to_string(workspace.path().join(".agents/skills/subflow/SKILL.md"))
+        .expect("subflow role");
+    assert!(subflow.contains("Pass `FLOW_ID` and `FLOW_DIRECTORY` unchanged"));
+    assert!(subflow.contains("Obtain the current `THREAD_ID` from the harness after launch."));
+    assert!(subflow.contains("Use `THREAD_ID` only for transcript and evidence provenance."));
+    assert!(subflow.contains("Do not create a lane, index entry, or log."));
     assert!(
         !workspace
             .path()
-            .join(".agents/skills/child-flow/agents/openai.yaml")
+            .join(".agents/skills/subflow/agents/openai.yaml")
             .exists()
     );
 
@@ -91,7 +88,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     )
     .expect("flow-evidence capability");
     assert!(evidence.contains("named tool or flow will consume one"));
-    assert!(evidence.contains("parent-reserved unique path"));
+    assert!(evidence.contains("main-flow-reserved unique path"));
     assert!(
         !workspace
             .path()
@@ -115,7 +112,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     let inventory =
         fs::read_to_string(workspace.path().join("skills/generated-role-outputs.datom"))
             .expect("typed cleanup inventory");
-    assert!(inventory.starts_with("GeneratedRoleOutputs.{["));
+    assert!(inventory.starts_with("GeneratedRoleOutputs.{ ["));
     assert_eq!(inventory.matches("agents/").count(), 27);
 
     let retired_agent_skill = workspace.path().join(".agents/skills/flows/SKILL.md");
@@ -135,7 +132,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     fs::write(&stale, "retired").expect("stale role");
     fs::write(
         workspace.path().join("skills/generated-role-outputs.datom"),
-        "GeneratedRoleOutputs.{[.codex/agents/retired.toml]}",
+        "GeneratedRoleOutputs.{ [ \u{201C}.codex/agents/retired.toml\u{201D} ] }",
     )
     .expect("prior typed inventory");
     let output = Command::new(binary())
@@ -178,13 +175,40 @@ fn cli_accepts_only_one_inline_object() {
 }
 
 #[test]
+fn legacy_curriculum_request_wrapper_is_accepted() {
+    let data = tempdir().expect("data root");
+    let skills = data.path().join("skills");
+    fs::create_dir_all(&skills).expect("skills directory");
+    fs::write(
+        data.path().join("roles.datom"),
+        "Roles.{ [] [] [] [] [] [] [] [] }",
+    )
+    .expect("empty role data");
+    let workspace = tempdir().expect("workspace");
+    let output = Command::new(binary())
+        .arg(format!(
+            "CurriculumRequest.{{ Visualize.{{ {} {} }} }}",
+            data.path().display(),
+            workspace.path().display()
+        ))
+        .output()
+        .expect("legacy wrapper");
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Visualized."),
+        "unexpected output: {stdout}"
+    );
+}
+
+#[test]
 fn skill_conditionals_render_only_for_their_target() {
     let data = tempdir().expect("data root");
     let skills = data.path().join("skills");
     fs::create_dir_all(&skills).expect("skills directory");
     fs::write(
         data.path().join("roles.datom"),
-        "Roles.{[] [] [] [] [] [] [] []}",
+        "Roles.{ [] [] [] [] [] [] [] [] }",
     )
     .expect("empty role data");
     fs::write(
@@ -196,7 +220,7 @@ fn skill_conditionals_render_only_for_their_target() {
     let workspace = tempdir().expect("workspace");
     let output = Command::new(binary())
         .arg(format!(
-            "CurriculumRequest.{{Generate.{{{} {}}}}}",
+            "Generate.{{ {} {} }}",
             data.path().display(),
             workspace.path().display()
         ))
@@ -213,4 +237,47 @@ fn skill_conditionals_render_only_for_their_target() {
         .expect("Codex skill");
     assert!(codex.contains("codex command"));
     assert!(!codex.contains("claude command"));
+}
+
+#[test]
+fn freshness_test_generated_module_matches_ethos_file() {
+    // Verify that the committed generated.rs matches what ethos-zero would
+    // emit from the ethos file. The committed file is rustfmt-formatted,
+    // so the emitted output is formatted the same way before comparison.
+    use ethos_zero::{Actualizing, Emitting, Potential};
+    let ethos_source = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/curriculum-deploy.ethos"
+    ))
+    .expect("ethos file");
+    let concept = Potential::from(ethos_source.as_str())
+        .actualize()
+        .expect("ethos file reads");
+    let emitted = concept.emit().expect("ethos file emits");
+    let formatted = format_rust(&emitted).unwrap_or(emitted);
+    let committed =
+        std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/generated.rs"))
+            .expect("committed generated.rs");
+    assert_eq!(
+        formatted, committed,
+        "src/generated.rs is stale: regenerate with ethos-zero from curriculum-deploy.ethos"
+    );
+}
+
+fn format_rust(source: &str) -> Option<String> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new("rustfmt")
+        .arg("--edition=2024")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    child.stdin.take()?.write_all(source.as_bytes()).ok()?;
+    let output = child.wait_with_output().ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8(output.stdout).ok())?
 }
