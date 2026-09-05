@@ -54,12 +54,12 @@ impl Roles {
         let permission = self
             .2
             .iter()
-            .find(|entry| entry.0 == discipline)
+            .find(|entry| entry.0.as_ref() == discipline)
             .ok_or_else(|| format!("missing permission {discipline}"))?;
         let depth_entry = self
             .3
             .iter()
-            .find(|entry| entry.0 == depth)
+            .find(|entry| entry.0.as_ref() == depth)
             .ok_or_else(|| format!("missing depth {depth}"))?;
         let choice = match surface {
             Surface::ClaudeAgent => &depth_entry.1,
@@ -82,12 +82,12 @@ impl Roles {
         {
             return Err(format!("invalid model choice {}", choice.0));
         }
-        let mut modules = Vec::new();
+        let mut modules = Vec::<String>::new();
         if permission.2 == Permission::Restricted {
-            modules.push(permission.1.clone());
+            modules.push(permission.1.clone().into());
         }
         for module_id in &self.6 {
-            modules.push(self.module(module_id)?);
+            modules.push(self.module(module_id.as_ref())?);
         }
         for insertion in self
             .7
@@ -95,7 +95,7 @@ impl Roles {
             .filter(|entry| entry.1 == surface && self.6.contains(&entry.0))
         {
             for module_id in &insertion.2 {
-                modules.push(self.module(module_id)?);
+                modules.push(self.module(module_id.as_ref())?);
             }
         }
         let body = modules.join("\n\n");
@@ -146,8 +146,8 @@ impl Roles {
     fn module(&self, identifier: &str) -> Result<String, String> {
         self.0
             .iter()
-            .find(|module| module.0 == identifier)
-            .map(|module| module.1.clone())
+            .find(|module| module.0.as_ref() == identifier)
+            .map(|module| module.1.clone().into())
             .ok_or_else(|| format!("missing role module {identifier}"))
     }
 }
@@ -155,12 +155,11 @@ impl Roles {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::RootWriting;
-    use datomic::Datomic;
+    use crate::generated::RolesDocument;
+    use datom_codec::{Actualizable, IncorporationBudget, Potential, Textualizable};
 
     #[test]
     fn empty_roles_round_trip_through_the_typed_schema() {
-        use crate::runtime::RootReading;
         let roles = Roles(
             vec![],
             vec![],
@@ -171,14 +170,11 @@ mod tests {
             vec![],
             vec![],
         );
-        let text = roles.write_root();
-        let round_tripped = Roles::read_root(&text).expect("canonical roles");
-        // Compare through datom since Roles lacks PartialEq
-        assert_eq!(
-            round_tripped.datomize(),
-            roles.datomize(),
-            "round trip changed the roles"
-        );
+        let text = RolesDocument::Roles(roles.clone()).textualize();
+        let RolesDocument::Roles(round_tripped) = Potential::<RolesDocument>::from(text)
+            .actualize(IncorporationBudget::try_from(1_024).expect("positive fixed budget"))
+            .expect("canonical roles");
+        assert_eq!(round_tripped, roles, "round trip changed the roles");
         assert!(roles.packets().expect("packets").is_empty());
     }
 }

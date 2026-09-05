@@ -4,9 +4,8 @@
 ; No CurriculumRequest wrapper: Generate.{ /curriculum /primary } is the
 ; whole request.
 
-Library.{ 0 3 0 }
-
-[ protos:Text ]
+Types
+[ protos:[ Text Integer ] ]
 
 [ Configuration.{ Text Text }
   Request.[ Generate.Configuration Check.Configuration Visualize.Configuration ]
@@ -14,6 +13,7 @@ Library.{ 0 3 0 }
            Checked.{ Integer Integer }
            Visualized.{ Integer Integer } ]
   GeneratedRoleOutputs.{ Vector<Text> }
+  GeneratedRoleOutputDocument.[ GeneratedRoleOutputs.GeneratedRoleOutputs ]
   Provider.[ Claude ChatGpt ]
   Permission.[ Restricted Unrestricted ]
   Effort.[ Low Medium High Xhigh ]
@@ -26,8 +26,7 @@ Library.{ 0 3 0 }
   RoleDescription.{ Text Text Text }
   RoleAlias.{ Text Text Text Text Vector<Surface> }
   TargetInsertion.{ Text Surface Vector<Text> }
-  Roles.{ Vector<RoleModule> Vector<Model> Vector<RolePermission> Vector<RoleDepth> Vector<RoleDescription> Vector<RoleAlias> Vector<Text> Vector<TargetInsertion> } ]
-
-[]
+  Roles.{ Vector<RoleModule> Vector<Model> Vector<RolePermission> Vector<RoleDepth> Vector<RoleDescription> Vector<RoleAlias> Vector<Text> Vector<TargetInsertion> }
+  RolesDocument.[ Roles.Roles ] ]
 
 []

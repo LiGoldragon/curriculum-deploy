@@ -3,11 +3,12 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use datomic::{Corporal, Datom, Datomic, Separator, Textualizable};
-use protos::{Conceptual, Structural};
+use datom_codec::{Actualizable, IncorporationBudget, Potential, Textualizable};
 use thiserror::Error as ThisError;
 
-use crate::generated::{GeneratedRoleOutputs, Output, Request, Roles};
+use crate::generated::{
+    GeneratedRoleOutputDocument, GeneratedRoleOutputs, Output, Request, RolesDocument,
+};
 use crate::roles::RolePacket;
 
 #[derive(Debug, ThisError)]
@@ -35,65 +36,10 @@ trait DatomFaulting {
     fn datom_fault(self) -> Error;
 }
 
-impl DatomFaulting for datomic::Fault {
+impl DatomFaulting for datom_codec::Fault {
     fn datom_fault(self) -> Error {
         Error::Datom(self.textualize())
     }
-}
-
-impl DatomFaulting for protos::Fault {
-    fn datom_fault(self) -> Error {
-        Error::Datom(datomic::Fault::from(self).textualize())
-    }
-}
-
-/// Root-head convention: unwrap a named variant head when reading a datom file.
-pub(crate) trait RootReading: Corporal<Datom, Fault = datomic::Fault> {
-    const ROOT: &'static str;
-
-    fn read_root(text: &str) -> Result<Self, datomic::Fault> {
-        let delineation = text.to_owned().delineate().map_err(datomic::Fault::from)?;
-        let datom: Datom = delineation.conceive()?;
-        match datom {
-            Datom::Variant(head, Separator::Period, Some(body)) if head == Self::ROOT => {
-                Self::incorporate(*body)
-            }
-            other => Err(datomic::Fault::Corporal(
-                vec![],
-                datomic::Problem::Shape(datomic::Expected::Variant, other),
-            )),
-        }
-    }
-}
-
-/// Root-head convention: wrap a named variant head when writing a datom file.
-pub(crate) trait RootWriting: Datomic {
-    const ROOT: &'static str;
-
-    fn write_root(&self) -> String {
-        let datom = Datom::Variant(
-            Self::ROOT.to_owned(),
-            Separator::Period,
-            Some(Box::new(self.datomize())),
-        );
-        datom.textualize()
-    }
-}
-
-impl RootReading for Roles {
-    const ROOT: &'static str = "Roles";
-}
-
-impl RootWriting for Roles {
-    const ROOT: &'static str = "Roles";
-}
-
-impl RootReading for GeneratedRoleOutputs {
-    const ROOT: &'static str = "GeneratedRoleOutputs";
-}
-
-impl RootWriting for GeneratedRoleOutputs {
-    const ROOT: &'static str = "GeneratedRoleOutputs";
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -121,41 +67,50 @@ impl CommandLine {
 }
 
 fn actualize_request(text: &str) -> Result<Request, Error> {
-    let delineation = text
-        .to_owned()
-        .delineate()
-        .map_err(DatomFaulting::datom_fault)?;
-    let datom: Datom = delineation.conceive().map_err(DatomFaulting::datom_fault)?;
-    Request::incorporate(datom).map_err(DatomFaulting::datom_fault)
+    Potential::<Request>::from(text)
+        .actualize(IncorporationBudget::try_from(1_024).expect("positive fixed budget"))
+        .map_err(DatomFaulting::datom_fault)
 }
 
 impl Request {
     fn execute(self) -> Result<String, Error> {
         let (mode, data_root, workspace_root) = match self {
-            Self::Generate(c) => (Mode::Generate, PathBuf::from(&c.0), PathBuf::from(&c.1)),
-            Self::Check(c) => (Mode::Check, PathBuf::from(&c.0), PathBuf::from(&c.1)),
-            Self::Visualize(c) => (Mode::Visualize, PathBuf::from(&c.0), PathBuf::from(&c.1)),
+            Self::Generate(c) => (
+                Mode::Generate,
+                PathBuf::from(c.0.as_ref()),
+                PathBuf::from(c.1.as_ref()),
+            ),
+            Self::Check(c) => (
+                Mode::Check,
+                PathBuf::from(c.0.as_ref()),
+                PathBuf::from(c.1.as_ref()),
+            ),
+            Self::Visualize(c) => (
+                Mode::Visualize,
+                PathBuf::from(c.0.as_ref()),
+                PathBuf::from(c.1.as_ref()),
+            ),
         };
         let deployment = Deployment::read(data_root, workspace_root)?;
         let output = match mode {
             Mode::Generate => {
                 deployment.write()?;
-                Output::Generated(crate::generated::OutputGenerated(
+                Output::Generated(
                     deployment.skills.len() as i64,
                     deployment.roles.len() as i64,
-                ))
+                )
             }
             Mode::Check => {
                 deployment.check()?;
-                Output::Checked(crate::generated::OutputChecked(
+                Output::Checked(
                     deployment.skills.len() as i64,
                     deployment.roles.len() as i64,
-                ))
+                )
             }
-            Mode::Visualize => Output::Visualized(crate::generated::OutputVisualized(
+            Mode::Visualize => Output::Visualized(
                 deployment.skills.len() as i64,
                 deployment.roles.len() as i64,
-            )),
+            ),
         };
         Ok(output.textualize())
     }
@@ -307,7 +262,9 @@ impl Deployment {
         let role_path = data_root.join("roles.datom");
         let source =
             fs::read_to_string(&role_path).map_err(|error| Error::Read(role_path, error))?;
-        let roles = Roles::read_root(&source).map_err(DatomFaulting::datom_fault)?;
+        let RolesDocument::Roles(roles) = Potential::<RolesDocument>::from(source.as_str())
+            .actualize(IncorporationBudget::try_from(16_384).expect("positive fixed budget"))
+            .map_err(DatomFaulting::datom_fault)?;
         let packets = roles.packets().map_err(Error::Roles)?;
         Ok(Self {
             workspace: workspace_root,
@@ -337,10 +294,20 @@ impl Deployment {
                 ));
             }
         }
-        let inventory_paths: Vec<String> =
-            self.roles.iter().map(|role| role.path.clone()).collect();
-        let inventory = GeneratedRoleOutputs(inventory_paths);
-        let inventory_text = inventory.write_root();
+        let inventory_paths = self
+            .roles
+            .iter()
+            .map(|role| {
+                role.path
+                    .clone()
+                    .try_into()
+                    .expect("generated relative path has no closing curly quote")
+            })
+            .collect();
+        let inventory = GeneratedRoleOutputDocument::GeneratedRoleOutputs(GeneratedRoleOutputs(
+            inventory_paths,
+        ));
+        let inventory_text = inventory.textualize();
         for role in &self.roles {
             outputs.push((PathBuf::from(&role.path), role.text.clone()));
         }
@@ -402,11 +369,14 @@ impl Deployment {
         }
         let source = fs::read_to_string(&inventory)
             .map_err(|error| Error::Read(inventory.clone(), error))?;
-        let Ok(old) = GeneratedRoleOutputs::read_root(&source) else {
+        let Ok(GeneratedRoleOutputDocument::GeneratedRoleOutputs(old)) =
+            Potential::<GeneratedRoleOutputDocument>::from(source.as_str())
+                .actualize(IncorporationBudget::try_from(1_024).expect("positive fixed budget"))
+        else {
             return Ok(());
         };
         for relative in &old.0 {
-            let path = self.safe(&PathBuf::from(relative))?;
+            let path = self.safe(&PathBuf::from(relative.as_ref()))?;
             if path.exists() {
                 fs::remove_file(&path).map_err(|error| Error::Write(path, error))?;
             }

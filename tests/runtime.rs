@@ -217,16 +217,17 @@ fn freshness_test_generated_module_matches_ethos_file() {
     // Verify that the committed generated.rs matches what ethos-zero would
     // emit from the ethos file. The committed file is rustfmt-formatted,
     // so the emitted output is formatted the same way before comparison.
-    use ethos_zero::{Actualizing, Emitting, Potential};
+    use ethos_zero::{File, Generating};
+    use protos::{Actualizable, Potential};
     let ethos_source = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/curriculum-deploy.ethos"
     ))
     .expect("ethos file");
-    let concept = Potential::from(ethos_source.as_str())
-        .actualize()
+    let concept = Potential::<File>::from(ethos_source.as_str())
+        .actualize(())
         .expect("ethos file reads");
-    let emitted = concept.emit().expect("ethos file emits");
+    let emitted = concept.generate();
     let formatted = format_rust(&emitted).unwrap_or(emitted);
     let committed =
         std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/generated.rs"))
@@ -263,35 +264,15 @@ fn curriculum_roles_round_trip_through_textualize() {
     let role_path = format!("{data_root}/roles.datom");
     let source = fs::read_to_string(&role_path).expect("roles.datom");
 
-    use curriculum_deploy::generated::Roles;
-    use datomic::{Corporal, Datom, Datomic, Separator, Textualizable};
-    use protos::{Conceptual, Structural};
+    use curriculum_deploy::generated::RolesDocument;
+    use datom_codec::{Actualizable, IncorporationBudget, Potential, Textualizable};
 
-    let delineation = source.delineate().expect("delineate");
-    let datom: Datom = delineation.conceive().expect("conceive");
-    let body = match datom {
-        Datom::Variant(head, Separator::Period, Some(body)) if head == "Roles" => *body,
-        other => panic!("expected Roles.{{ ... }}, got: {other:?}"),
-    };
-    let roles = Roles::incorporate(body).expect("incorporate");
-
-    // Textualize and round-trip
-    let datom_out = Datom::Variant(
-        "Roles".to_owned(),
-        Separator::Period,
-        Some(Box::new(roles.datomize())),
-    );
-    let text_out = datom_out.textualize();
-    let delineation2 = text_out.delineate().expect("re-delineate");
-    let datom2: Datom = delineation2.conceive().expect("re-conceive");
-    let body2 = match datom2 {
-        Datom::Variant(head, Separator::Period, Some(body)) if head == "Roles" => *body,
-        other => panic!("round-trip root mismatch: {other:?}"),
-    };
-    let roles2 = Roles::incorporate(body2).expect("re-incorporate");
-    assert_eq!(
-        roles.datomize(),
-        roles2.datomize(),
-        "round trip changed the roles"
-    );
+    let document = Potential::<RolesDocument>::from(source.as_str())
+        .actualize(IncorporationBudget::try_from(16_384).expect("positive fixed budget"))
+        .expect("read roles document");
+    let text_out = document.textualize();
+    let document2 = Potential::<RolesDocument>::from(text_out)
+        .actualize(IncorporationBudget::try_from(16_384).expect("positive fixed budget"))
+        .expect("round-trip roles document");
+    assert_eq!(document, document2, "round trip changed the roles");
 }
