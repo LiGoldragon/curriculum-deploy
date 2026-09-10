@@ -27,7 +27,7 @@ Output is printed as datom on stdout. Faults are printed as datom on stderr.
 |---|---|---|
 | protos | 0.29.1 | b543678cfc86 |
 | datom-codec | 0.25.6 | f2cc06858d38 |
-| ethos-zero | 6.1.3 (dev)| d7b813a55e54 |
+| ethos-zero | 6.1.4 (dev)| 79e51c0f9103 |
 
 ## Ethos declaration
 

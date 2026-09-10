@@ -18,7 +18,7 @@ protos = { git = "https://github.com/LiGoldragon/protos", rev = "b543678cfc86095
 thiserror = "2"
 
 [dev-dependencies]
-ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "d7b813a55e54a9d7b20648524cb67c7de3bb5317" }
+ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "79e51c0f91030fabf06e2c74b17a9808bbe71b1d" }
 tempfile = "3"
 
 [lints.rust]

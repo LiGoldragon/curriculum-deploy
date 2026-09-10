@@ -97,8 +97,8 @@ dependencies = [
 
 [[package]]
 name = "ethos-zero"
-version = "6.1.3"
-source = "git+https://github.com/LiGoldragon/ethos-zero?rev=d7b813a55e54a9d7b20648524cb67c7de3bb5317#d7b813a55e54a9d7b20648524cb67c7de3bb5317"
+version = "6.1.4"
+source = "git+https://github.com/LiGoldragon/ethos-zero?rev=79e51c0f91030fabf06e2c74b17a9808bbe71b1d#79e51c0f91030fabf06e2c74b17a9808bbe71b1d"
 dependencies = [
  "datom-codec",
  "prettyplease",
