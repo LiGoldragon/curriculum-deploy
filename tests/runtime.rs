@@ -1,15 +1,22 @@
 use std::{fs, process::Command};
 
+use curriculum_deploy::generated::{GeneratedRoleOutputDocument, RolesDocument};
+use datom_codec::{Actualizing, Budget, Potential};
+use protos::ReaderBudget;
 use tempfile::tempdir;
 
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_curriculum-deploy")
 }
 
+fn data_root() -> String {
+    std::env::var("CURRICULUM_TEST_DATA_ROOT")
+        .unwrap_or_else(|_| "/external-fixture-not-configured".into())
+}
+
 fn request(operation: &str, workspace: &std::path::Path) -> String {
-    let data_root = std::env::var("CURRICULUM_TEST_DATA_ROOT")
-        .unwrap_or_else(|_| "/external-fixture-not-configured".into());
-    format!("{operation}.{{ {data_root} {} }}", workspace.display())
+    let data_root = data_root();
+    format!("{operation}.{{ «{data_root}» «{}» }}", workspace.display())
 }
 
 #[test]
@@ -33,8 +40,18 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     let claude_skills = fs::read_dir(workspace.path().join(".claude/skills"))
         .expect("claude skills")
         .count();
-    assert_eq!(agent_skills, 38);
-    assert_eq!(claude_skills, 38);
+    let source_skills = fs::read_dir(std::path::Path::new(&data_root()).join("skills"))
+        .expect("authored fixture skills")
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension == "md")
+        })
+        .count();
+    assert_eq!(agent_skills, source_skills);
+    assert_eq!(claude_skills, source_skills);
     assert!(
         workspace
             .path()
@@ -96,24 +113,49 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
             .exists()
     );
 
-    let roles: Vec<_> = [".claude/agents", ".codex/agents", ".pi/agents"]
+    let generated_role_files: Vec<_> = [".claude/agents", ".codex/agents", ".pi/agents"]
         .into_iter()
         .flat_map(|relative| fs::read_dir(workspace.path().join(relative)).expect("role directory"))
         .collect();
-    assert_eq!(roles.len(), 27);
-    let codex = fs::read_to_string(workspace.path().join(".codex/agents/worker.toml"))
-        .expect("worker alias");
-    assert!(codex.contains("gpt-5.6-terra"));
-    assert!(codex.contains("Do not reload a complete pasted skill"));
-    let claude = fs::read_to_string(workspace.path().join(".claude/agents/write-demanding.md"))
-        .expect("Claude role");
-    assert!(claude.contains("claude-opus-4-6[1m]"));
-    assert!(claude.contains("The brief is your authority"));
+    let roles_source = fs::read_to_string(std::path::Path::new(&data_root()).join("roles.datom"))
+        .expect("authored fixture roles");
+    let RolesDocument::Roles(authored_roles) = Potential::<RolesDocument>::from(roles_source)
+        .actualize(&mut Budget {
+            remaining: 16_384,
+            reader: ReaderBudget { remaining: 16_384 },
+            depth: 0,
+            maximum_depth: 16_384,
+        })
+        .expect("authored fixture roles compose");
+    let expected_packets = authored_roles.packets().expect("authored role packets");
+    assert_eq!(generated_role_files.len(), expected_packets.len());
+    for packet in &expected_packets {
+        assert_eq!(
+            fs::read_to_string(workspace.path().join(&packet.path)).expect("generated role packet"),
+            packet.text,
+            "generated role differs from authored fixture at {}",
+            packet.path
+        );
+    }
     let inventory =
         fs::read_to_string(workspace.path().join("skills/generated-role-outputs.datom"))
             .expect("typed cleanup inventory");
-    assert!(inventory.starts_with("GeneratedRoleOutputs.{ ["));
-    assert_eq!(inventory.matches("agents/").count(), 27);
+    let GeneratedRoleOutputDocument::GeneratedRoleOutputs(inventory) =
+        Potential::<GeneratedRoleOutputDocument>::from(inventory)
+            .actualize(&mut Budget {
+                remaining: 16_384,
+                reader: ReaderBudget { remaining: 16_384 },
+                depth: 0,
+                maximum_depth: 16_384,
+            })
+            .expect("generated role inventory composes");
+    assert_eq!(
+        inventory.string_vector,
+        expected_packets
+            .iter()
+            .map(|packet| packet.path.clone())
+            .collect::<Vec<_>>()
+    );
 
     let retired_agent_skill = workspace.path().join(".agents/skills/flows/SKILL.md");
     let retired_claude_skill = workspace.path().join(".claude/skills/subflows/SKILL.md");
@@ -132,7 +174,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     fs::write(&stale, "retired").expect("stale role");
     fs::write(
         workspace.path().join("skills/generated-role-outputs.datom"),
-        "GeneratedRoleOutputs.{ [ \u{201C}.codex/agents/retired.toml\u{201D} ] }",
+        "GeneratedRoleOutputs.{ [ «.codex/agents/retired.toml» ] }",
     )
     .expect("prior typed inventory");
     let output = Command::new(binary())
@@ -193,7 +235,7 @@ fn skill_conditionals_render_only_for_their_target() {
     let workspace = tempdir().expect("workspace");
     let output = Command::new(binary())
         .arg(format!(
-            "Generate.{{ {} {} }}",
+            "Generate.{{ «{}» «{}» }}",
             data.path().display(),
             workspace.path().display()
         ))
@@ -217,17 +259,18 @@ fn freshness_test_generated_module_matches_ethos_file() {
     // Verify that the committed generated.rs matches what ethos-zero would
     // emit from the ethos file. The committed file is rustfmt-formatted,
     // so the emitted output is formatted the same way before comparison.
-    use ethos_zero::{File, Generating};
-    use protos::{Actualizable, Potential};
+    use ethos_zero::{Actualizing, File, Generating, Potential};
     let ethos_source = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/curriculum-deploy.ethos"
     ))
     .expect("ethos file");
-    let concept = Potential::<File>::from(ethos_source.as_str())
-        .actualize(())
-        .expect("ethos file reads");
-    let emitted = concept.generate();
+    let concept = Potential::<File>::from(ethos_source)
+        .actualize()
+        .unwrap_or_else(|_| panic!("ethos file reads"));
+    let emitted = concept
+        .generate()
+        .unwrap_or_else(|_| panic!("ethos file generates"));
     let formatted = format_rust(&emitted).unwrap_or(emitted);
     let committed =
         std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/generated.rs"))
@@ -265,14 +308,27 @@ fn curriculum_roles_round_trip_through_textualize() {
     let source = fs::read_to_string(&role_path).expect("roles.datom");
 
     use curriculum_deploy::generated::RolesDocument;
-    use datom_codec::{Actualizable, IncorporationBudget, Potential, Textualizable};
+    use datom_codec::{Actualizing, Budget, Datomizable, Potential};
+    use protos::{Protosizable, ReaderBudget, Textualizable};
 
-    let document = Potential::<RolesDocument>::from(source.as_str())
-        .actualize(IncorporationBudget::try_from(16_384).expect("positive fixed budget"))
+    let budget = || Budget {
+        remaining: 16_384,
+        reader: ReaderBudget { remaining: 16_384 },
+        depth: 0,
+        maximum_depth: 16_384,
+    };
+    let mut potential = Potential::<RolesDocument>::from(source);
+    let document = potential
+        .actualize(&mut budget())
         .expect("read roles document");
-    let text_out = document.textualize();
-    let document2 = Potential::<RolesDocument>::from(text_out)
-        .actualize(IncorporationBudget::try_from(16_384).expect("positive fixed budget"))
+    let text_out = document.datomize(vec![]).protosize().textualize();
+    let mut potential = Potential::<RolesDocument>::from(text_out.clone());
+    let document2 = potential
+        .actualize(&mut budget())
         .expect("round-trip roles document");
-    assert_eq!(document, document2, "round trip changed the roles");
+    assert_eq!(
+        text_out,
+        document2.datomize(vec![]).protosize().textualize(),
+        "round trip changed the roles"
+    );
 }

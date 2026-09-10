@@ -3,11 +3,13 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use datom_codec::{Actualizable, IncorporationBudget, Potential, Textualizable};
+use datom_codec::{Actualizing, Budget, Compositional, Datom, Datomizable, Potential};
+use protos::{Protosizable, ReaderBudget, Textualizable};
 use thiserror::Error as ThisError;
 
 use crate::generated::{
-    GeneratedRoleOutputDocument, GeneratedRoleOutputs, Output, Request, RolesDocument,
+    Checked_Data, Generated_Data, GeneratedRoleOutputDocument, GeneratedRoleOutputs, Output,
+    Request, RolesDocument, Visualized_Data,
 };
 use crate::roles::RolePacket;
 
@@ -36,9 +38,36 @@ trait DatomFaulting {
     fn datom_fault(self) -> Error;
 }
 
-impl DatomFaulting for datom_codec::Fault {
+impl DatomFaulting for datom_codec::Error {
     fn datom_fault(self) -> Error {
-        Error::Datom(self.textualize())
+        Error::Datom(self.datomize(vec![]).protosize().textualize())
+    }
+}
+
+trait BudgetedActualizing<T> {
+    fn actualize_with_limit(&mut self, limit: i64) -> Result<T, datom_codec::Error>;
+}
+
+impl<T: Compositional> BudgetedActualizing<T> for Potential<T> {
+    fn actualize_with_limit(&mut self, limit: i64) -> Result<T, datom_codec::Error> {
+        self.actualize(&mut Budget {
+            remaining: limit,
+            reader: ReaderBudget {
+                remaining: usize::try_from(limit).expect("positive fixed budget"),
+            },
+            depth: 0,
+            maximum_depth: limit,
+        })
+    }
+}
+
+trait DatomTextualizing {
+    fn datom_text(&self) -> String;
+}
+
+impl<T: Datomizable<Output = Datom>> DatomTextualizing for T {
+    fn datom_text(&self) -> String {
+        self.datomize(vec![]).protosize().textualize()
     }
 }
 
@@ -68,7 +97,7 @@ impl CommandLine {
 
 fn actualize_request(text: &str) -> Result<Request, Error> {
     Potential::<Request>::from(text)
-        .actualize(IncorporationBudget::try_from(1_024).expect("positive fixed budget"))
+        .actualize_with_limit(1_024)
         .map_err(DatomFaulting::datom_fault)
 }
 
@@ -77,42 +106,42 @@ impl Request {
         let (mode, data_root, workspace_root) = match self {
             Self::Generate(c) => (
                 Mode::Generate,
-                PathBuf::from(c.0.as_ref()),
-                PathBuf::from(c.1.as_ref()),
+                PathBuf::from(c.first_string),
+                PathBuf::from(c.second_string),
             ),
             Self::Check(c) => (
                 Mode::Check,
-                PathBuf::from(c.0.as_ref()),
-                PathBuf::from(c.1.as_ref()),
+                PathBuf::from(c.first_string),
+                PathBuf::from(c.second_string),
             ),
             Self::Visualize(c) => (
                 Mode::Visualize,
-                PathBuf::from(c.0.as_ref()),
-                PathBuf::from(c.1.as_ref()),
+                PathBuf::from(c.first_string),
+                PathBuf::from(c.second_string),
             ),
         };
         let deployment = Deployment::read(data_root, workspace_root)?;
         let output = match mode {
             Mode::Generate => {
                 deployment.write()?;
-                Output::Generated(
-                    deployment.skills.len() as i64,
-                    deployment.roles.len() as i64,
-                )
+                Output::Generated(Generated_Data {
+                    first_integer: deployment.skills.len() as i64,
+                    second_integer: deployment.roles.len() as i64,
+                })
             }
             Mode::Check => {
                 deployment.check()?;
-                Output::Checked(
-                    deployment.skills.len() as i64,
-                    deployment.roles.len() as i64,
-                )
+                Output::Checked(Checked_Data {
+                    first_integer: deployment.skills.len() as i64,
+                    second_integer: deployment.roles.len() as i64,
+                })
             }
-            Mode::Visualize => Output::Visualized(
-                deployment.skills.len() as i64,
-                deployment.roles.len() as i64,
-            ),
+            Mode::Visualize => Output::Visualized(Visualized_Data {
+                first_integer: deployment.skills.len() as i64,
+                second_integer: deployment.roles.len() as i64,
+            }),
         };
-        Ok(output.textualize())
+        Ok(output.datom_text())
     }
 }
 
@@ -262,8 +291,8 @@ impl Deployment {
         let role_path = data_root.join("roles.datom");
         let source =
             fs::read_to_string(&role_path).map_err(|error| Error::Read(role_path, error))?;
-        let RolesDocument::Roles(roles) = Potential::<RolesDocument>::from(source.as_str())
-            .actualize(IncorporationBudget::try_from(16_384).expect("positive fixed budget"))
+        let RolesDocument::Roles(roles) = Potential::<RolesDocument>::from(source)
+            .actualize_with_limit(16_384)
             .map_err(DatomFaulting::datom_fault)?;
         let packets = roles.packets().map_err(Error::Roles)?;
         Ok(Self {
@@ -294,20 +323,11 @@ impl Deployment {
                 ));
             }
         }
-        let inventory_paths = self
-            .roles
-            .iter()
-            .map(|role| {
-                role.path
-                    .clone()
-                    .try_into()
-                    .expect("generated relative path has no closing curly quote")
-            })
-            .collect();
-        let inventory = GeneratedRoleOutputDocument::GeneratedRoleOutputs(GeneratedRoleOutputs(
-            inventory_paths,
-        ));
-        let inventory_text = inventory.textualize();
+        let inventory_paths = self.roles.iter().map(|role| role.path.clone()).collect();
+        let inventory = GeneratedRoleOutputDocument::GeneratedRoleOutputs(GeneratedRoleOutputs {
+            string_vector: inventory_paths,
+        });
+        let inventory_text = inventory.datom_text();
         for role in &self.roles {
             outputs.push((PathBuf::from(&role.path), role.text.clone()));
         }
@@ -370,13 +390,12 @@ impl Deployment {
         let source = fs::read_to_string(&inventory)
             .map_err(|error| Error::Read(inventory.clone(), error))?;
         let Ok(GeneratedRoleOutputDocument::GeneratedRoleOutputs(old)) =
-            Potential::<GeneratedRoleOutputDocument>::from(source.as_str())
-                .actualize(IncorporationBudget::try_from(1_024).expect("positive fixed budget"))
+            Potential::<GeneratedRoleOutputDocument>::from(source).actualize_with_limit(1_024)
         else {
             return Ok(());
         };
-        for relative in &old.0 {
-            let path = self.safe(&PathBuf::from(relative.as_ref()))?;
+        for relative in &old.string_vector {
+            let path = self.safe(&PathBuf::from(relative))?;
             if path.exists() {
                 fs::remove_file(&path).map_err(|error| Error::Write(path, error))?;
             }

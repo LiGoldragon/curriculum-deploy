@@ -1,5 +1,20 @@
 # Upgrades
 
+## 0.6.0
+
+Breaking: the runtime now uses the final Protos, Datom, and Ethos stack.
+
+### What changed
+
+- Requests, outputs, role data, and cleanup inventories use generated named
+  fields and the trait-borne `Potential::actualize` and
+  `datomize` -> `protosize` -> `textualize` chains.
+- Datom strings use guillemet delimiters. The Curriculum `roles.datom`
+  migration preserves every role value while changing the delimiters required
+  by the final parser, including delimiters around dotted model names.
+- The old Datomic/Corporal, Protoform, Text, and Fault APIs have no runtime
+  compatibility path.
+
 ## 0.4.0
 
 Breaking: the request root is now a plain data enum.
@@ -31,7 +46,9 @@ ProtoformStack train: datomic 0.8.0 and protos 0.15.0.
 
 ### How to deploy
 
-1. Bump primary's \`curriculum-deploy\` flake input to the new rev.
-2. Ensure primary's \`curriculum\` input is at 143125b1 or later.
-3. Regenerate: \`nix run .#generate-skills 'Generate.{ /path/to/Curriculum /home/li/primary }'\`
+1. Bump primary's `curriculum-deploy` flake input to the new rev.
+2. Ensure primary's `curriculum` input contains the matching `roles.datom`
+   delimiter migration.
+3. Regenerate with
+   `nix run .#generate-skills 'Generate.{ «/path/to/Curriculum» «/home/li/primary» }'`.
 4. Commit and push the regenerated trees.

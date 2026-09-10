@@ -6,16 +6,16 @@ inventories.
 
 ## Version
 
-0.4.0 (ProtoformStack train)
+0.6.0
 
 ## Usage
 
 The CLI accepts one inline datom value and no flags:
 
 ```
-curriculum-deploy 'Generate.{ /path/to/curriculum /path/to/workspace }'
-curriculum-deploy 'Check.{ /path/to/curriculum /path/to/workspace }'
-curriculum-deploy 'Visualize.{ /path/to/curriculum /path/to/workspace }'
+curriculum-deploy 'Generate.{ «/path/to/curriculum» «/path/to/workspace» }'
+curriculum-deploy 'Check.{ «/path/to/curriculum» «/path/to/workspace» }'
+curriculum-deploy 'Visualize.{ «/path/to/curriculum» «/path/to/workspace» }'
 ```
 
 
@@ -25,9 +25,9 @@ Output is printed as datom on stdout. Faults are printed as datom on stderr.
 
 | Crate | Version | Rev |
 |---|---|---|
-| protos | 0.15.0 | 56c683ec8d1e |
-| datomic | 0.8.0 | a27f9b8e7789 |
-| ethos-zero | 1.1.0 (dev) | 31c5984c7fda |
+| protos | 0.29.1 | b543678cfc86 |
+| datom-codec | 0.25.6 | f2cc06858d38 |
+| ethos-zero | 6.1.3 (dev)| d7b813a55e54 |
 
 ## Ethos declaration
 

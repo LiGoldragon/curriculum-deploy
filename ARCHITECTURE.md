@@ -2,19 +2,17 @@
 
 ## Layers
 
-Text -> Protoform -> Datom -> Corporal.
+Text -> Protos -> Datom -> generated Rust values.
 
-Realization (inbound): `delineate` -> `conceive` -> `incorporate`.
-Textualization (outbound): `datomize` -> `protosize` -> `print`.
+Realization (inbound): `Potential<T>::actualize` with an explicit parse budget.
+Textualization (outbound): `datomize` -> `protosize` -> `textualize`.
 
 ## Modules
 
 - `curriculum-deploy.ethos` -- the type declarations.
 - `src/generated.rs` -- committed output of ethos-zero; freshness-tested.
-- `src/generated_ext.rs` -- Clone/Copy/PartialEq/Eq for unit enums
-  (ethos-zero Library mode omits derives).
 - `src/runtime.rs` -- CLI dispatch, root-head convention, Deployment logic,
-  skill template rendering, Meaning-to-Text normalization.
+  skill template rendering, and the typed Datom conversion chain.
 - `src/roles.rs` -- role packet assembly from the Roles data.
 - `src/main.rs` -- entry point.
 
@@ -22,6 +20,5 @@ Textualization (outbound): `datomize` -> `protosize` -> `print`.
 
 Standalone datom files (roles.datom, generated-role-outputs.datom) carry
 a named variant head: `Roles.{ ... }`, `GeneratedRoleOutputs.{ ... }`.
-The `RootReading` and `RootWriting` traits wrap/unwrap this head in
-application code; the generated Datomic impls handle the inner struct.
-
+The generated document enums represent these heads. Generated
+`Datomizable` and `Compositional` implementations handle the complete value.

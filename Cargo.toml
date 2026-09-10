@@ -1,6 +1,6 @@
 [package]
 name = "curriculum-deploy"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
@@ -13,12 +13,12 @@ name = "curriculum-deploy"
 path = "src/main.rs"
 
 [dependencies]
-datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "41a3c073d5c5cdcb3ebb1a5c842e8c068145fdb2" }
-protos = { git = "https://github.com/LiGoldragon/protos", rev = "2d999f173334" }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "f2cc06858d38a4028c928d33323a6d682e7c222f" }
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "b543678cfc8609529cea7174eb4af8a64daa54ad" }
 thiserror = "2"
 
 [dev-dependencies]
-ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "341c5c57e45d98ee7d8a88d9b5746d3f50b16683" }
+ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "d7b813a55e54a9d7b20648524cb67c7de3bb5317" }
 tempfile = "3"
 
 [lints.rust]
