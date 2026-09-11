@@ -85,6 +85,12 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
         "policy:\n  allow_implicit_invocation: false\n"
     );
 
+    let claude_main =
+        fs::read_to_string(workspace.path().join(".claude/skills/main-flow/SKILL.md"))
+            .expect("main-flow Claude role");
+    assert!(claude_main.contains("disable-model-invocation: true"));
+    assert!(!claude_main.contains("user-only: true"));
+
     let subflow = fs::read_to_string(workspace.path().join(".agents/skills/subflow/SKILL.md"))
         .expect("subflow role");
     assert!(subflow.contains("Pass `FLOW_ID` and `FLOW_DIRECTORY` unchanged"));
@@ -97,6 +103,12 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
             .join(".agents/skills/subflow/agents/openai.yaml")
             .exists()
     );
+
+    let claude_subflow =
+        fs::read_to_string(workspace.path().join(".claude/skills/subflow/SKILL.md"))
+            .expect("subflow Claude role");
+    assert!(!claude_subflow.contains("user-only: true"));
+    assert!(!claude_subflow.contains("disable-model-invocation: true"));
 
     let evidence = fs::read_to_string(
         workspace

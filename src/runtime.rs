@@ -244,7 +244,11 @@ impl SkillBodyRendering for SkillTarget {
                 continue;
             }
             if blocks.iter().all(|block| block.selected) {
-                rendered.push_str(line);
+                if self == Self::Claude && directive == "user-only: true" {
+                    rendered.push_str("disable-model-invocation: true\n");
+                } else {
+                    rendered.push_str(line);
+                }
             }
         }
 
