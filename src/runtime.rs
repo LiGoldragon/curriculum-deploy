@@ -3,7 +3,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use datom_codec::{Actualizing, Budget, Compositional, Datom, Datomizable, Potential};
+use datom_codec::{Actualizing, Budget, Composing, Datom, Datomizable, Potential};
 use protos::{Protosizable, ReaderBudget, Textualizable};
 use thiserror::Error as ThisError;
 
@@ -48,7 +48,7 @@ trait BudgetedActualizing<T> {
     fn actualize_with_limit(&mut self, limit: i64) -> Result<T, datom_codec::Error>;
 }
 
-impl<T: Compositional> BudgetedActualizing<T> for Potential<T> {
+impl<T: Composing> BudgetedActualizing<T> for Potential<T> {
     fn actualize_with_limit(&mut self, limit: i64) -> Result<T, datom_codec::Error> {
         self.actualize(&mut Budget {
             remaining: limit,

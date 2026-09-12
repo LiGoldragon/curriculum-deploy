@@ -6,7 +6,7 @@ inventories.
 
 ## Version
 
-0.6.2
+0.6.3
 
 ## Usage
 
@@ -25,9 +25,9 @@ Output is printed as datom on stdout. Faults are printed as datom on stderr.
 
 | Crate | Version | Rev |
 |---|---|---|
-| protos | 0.29.1 | b543678cfc86 |
-| datom-codec | 0.25.6 | f2cc06858d38 |
-| ethos-zero | 6.1.4 (dev)| 79e51c0f9103 |
+| protos | 0.30.1 | 171b21f65337 |
+| datom-codec | 0.27.0 | 6dccc76b7591 |
+| ethos-zero | 9.0.0 (dev)| b232d35e0301 |
 
 ## Ethos declaration
 

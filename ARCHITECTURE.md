@@ -21,4 +21,4 @@ Textualization (outbound): `datomize` -> `protosize` -> `textualize`.
 Standalone datom files (roles.datom, generated-role-outputs.datom) carry
 a named variant head: `Roles.{ ... }`, `GeneratedRoleOutputs.{ ... }`.
 The generated document enums represent these heads. Generated
-`Datomizable` and `Compositional` implementations handle the complete value.
+`Datomizable` and `Composing` implementations handle the complete value.
