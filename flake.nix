@@ -9,7 +9,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     curriculum = {
-      url = "github:LiGoldragon/Curriculum/96ed68b4589d3dc612c9e767f30e5c197b44564f";
+      url = "github:LiGoldragon/Curriculum/8e4efa7fdc42aa0928cdce841c847be4f1f7bf87";
       flake = false;
     };
   };
