@@ -85,6 +85,28 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
         "policy:\n  allow_implicit_invocation: false\n"
     );
 
+    let refresh = fs::read_to_string(workspace.path().join(".agents/skills/refresh/SKILL.md"))
+        .expect("refresh skill is generated for Codex");
+    assert!(refresh.contains("user-only: true"));
+    assert!(refresh.contains("dependencies: [behavior, documentation-placement, edit-coordination, psyche, testing, vocabulary]"));
+    assert!(refresh.contains("field-astra-of-<ancestor-flow-id>"));
+    assert!(refresh.contains("field-sol-of-<ancestor-flow-id>"));
+    assert!(refresh.contains("`of` means descendant"));
+    assert!(refresh.contains("gpt-6-astra` at medium effort"));
+    assert!(
+        refresh
+            .contains("never kill, retire, conclude, silence, or automatically remove its routing")
+    );
+    assert_eq!(
+        fs::read_to_string(
+            workspace
+                .path()
+                .join(".agents/skills/refresh/agents/openai.yaml"),
+        )
+        .expect("refresh explicit-invocation policy"),
+        "policy:\n  allow_implicit_invocation: false\n"
+    );
+
     let claude_main =
         fs::read_to_string(workspace.path().join(".claude/skills/main-flow/SKILL.md"))
             .expect("main-flow Claude role");
@@ -294,7 +316,9 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
         .expect("runtime starts");
     assert!(output.status.success(), "{output:?}");
     assert_eq!(
-        String::from_utf8(output.stdout).expect("receipt text").trim(),
+        String::from_utf8(output.stdout)
+            .expect("receipt text")
+            .trim(),
         "Generated.{ 2 0 }",
         "the deployment receipt counts the user-only catalog entry"
     );
