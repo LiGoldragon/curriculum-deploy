@@ -267,6 +267,64 @@ fn skill_conditionals_render_only_for_their_target() {
 }
 
 #[test]
+fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt() {
+    let data = tempdir().expect("data root");
+    let skills = data.path().join("skills");
+    fs::create_dir_all(&skills).expect("skills directory");
+    fs::write(
+        data.path().join("roles.datom"),
+        "Roles.{ [] [] [] [] [] [] [] [] }",
+    )
+    .expect("empty role data");
+    fs::write(
+        skills.join("main-flow.md"),
+        "---\ndescription: Main flow\nuser-only: true\n---\n\nExplicit main flow.\n",
+    )
+    .expect("main flow skill");
+    fs::write(skills.join("subflow.md"), "Ordinary subflow.\n").expect("subflow skill");
+
+    let workspace = tempdir().expect("workspace");
+    let output = Command::new(binary())
+        .arg(format!(
+            "Generate.{{ «{}» «{}» }}",
+            data.path().display(),
+            workspace.path().display()
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(
+        String::from_utf8(output.stdout).expect("receipt text").trim(),
+        "Generated.{ 2 0 }",
+        "the deployment receipt counts the user-only catalog entry"
+    );
+
+    assert_eq!(
+        fs::read_to_string(
+            workspace
+                .path()
+                .join(".agents/skills/main-flow/agents/openai.yaml"),
+        )
+        .expect("explicit main-flow policy"),
+        "policy:\n  allow_implicit_invocation: false\n"
+    );
+    assert!(
+        workspace
+            .path()
+            .join(".agents/skills/main-flow/SKILL.md")
+            .is_file(),
+        "the explicit route has a generated source"
+    );
+    assert!(
+        !workspace
+            .path()
+            .join(".agents/skills/subflow/agents/openai.yaml")
+            .exists(),
+        "ordinary skills retain implicit invocation"
+    );
+}
+
+#[test]
 fn freshness_test_generated_module_matches_ethos_file() {
     // Verify that the committed generated.rs matches what ethos-zero would
     // emit from the ethos file. The committed file is rustfmt-formatted,
