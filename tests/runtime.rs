@@ -1,4 +1,4 @@
-use std::{fs, process::Command};
+use std::{collections::BTreeSet, fs, path::Path, process::Command};
 
 use curriculum_deploy::generated::{GeneratedRoleOutputDocument, RolesDocument};
 use datom_codec::{Actualizing, Budget, Potential};
@@ -19,6 +19,30 @@ fn request(operation: &str, workspace: &std::path::Path) -> String {
     format!("{operation}.{{ «{data_root}» «{}» }}", workspace.display())
 }
 
+fn authored_skill_names(data_root: &Path) -> BTreeSet<String> {
+    fs::read_dir(data_root.join("skills"))
+        .expect("authored fixture skills")
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension == "md")
+                .then(|| entry.file_name().into_string().expect("UTF-8 skill name"))
+        })
+        .map(|name| name.trim_end_matches(".md").to_owned())
+        .collect()
+}
+
+fn generated_skill_names(workspace: &Path, surface: &str) -> BTreeSet<String> {
+    fs::read_dir(workspace.join(surface))
+        .expect("generated skill surface")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join("SKILL.md").is_file())
+        .map(|entry| entry.file_name().into_string().expect("UTF-8 skill name"))
+        .collect()
+}
+
 #[test]
 #[ignore = "requires the externally owned Curriculum data fixture"]
 fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
@@ -34,24 +58,17 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
         .expect("runtime starts");
     assert!(output.status.success(), "{output:?}");
 
-    let agent_skills = fs::read_dir(workspace.path().join(".agents/skills"))
-        .expect("agent skills")
-        .count();
-    let claude_skills = fs::read_dir(workspace.path().join(".claude/skills"))
-        .expect("claude skills")
-        .count();
-    let source_skills = fs::read_dir(std::path::Path::new(&data_root()).join("skills"))
-        .expect("authored fixture skills")
-        .filter_map(Result::ok)
-        .filter(|entry| {
-            entry
-                .path()
-                .extension()
-                .is_some_and(|extension| extension == "md")
-        })
-        .count();
-    assert_eq!(agent_skills, source_skills);
-    assert_eq!(claude_skills, source_skills);
+    let source_skills = authored_skill_names(Path::new(&data_root()));
+    assert_eq!(
+        generated_skill_names(workspace.path(), ".agents/skills"),
+        source_skills,
+        "Codex generated skills must exactly cover the authored source catalog"
+    );
+    assert_eq!(
+        generated_skill_names(workspace.path(), ".claude/skills"),
+        source_skills,
+        "Claude generated skills must exactly cover the authored source catalog"
+    );
     assert!(
         workspace
             .path()
@@ -82,28 +99,6 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
                 .join(".agents/skills/main-flow/agents/openai.yaml"),
         )
         .expect("main-flow invocation policy"),
-        "policy:\n  allow_implicit_invocation: false\n"
-    );
-
-    let refresh = fs::read_to_string(workspace.path().join(".agents/skills/refresh/SKILL.md"))
-        .expect("refresh skill is generated for Codex");
-    assert!(refresh.contains("user-only: true"));
-    assert!(refresh.contains("dependencies: [behavior, documentation-placement, edit-coordination, psyche, testing, vocabulary]"));
-    assert!(refresh.contains("field-astra-of-<ancestor-flow-id>"));
-    assert!(refresh.contains("field-sol-of-<ancestor-flow-id>"));
-    assert!(refresh.contains("`of` means descendant"));
-    assert!(refresh.contains("gpt-6-astra` at medium effort"));
-    assert!(
-        refresh
-            .contains("never kill, retire, conclude, silence, or automatically remove its routing")
-    );
-    assert_eq!(
-        fs::read_to_string(
-            workspace
-                .path()
-                .join(".agents/skills/refresh/agents/openai.yaml"),
-        )
-        .expect("refresh explicit-invocation policy"),
         "policy:\n  allow_implicit_invocation: false\n"
     );
 

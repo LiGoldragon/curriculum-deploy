@@ -6,6 +6,9 @@ Text -> Protos -> Datom -> generated Rust values.
 
 Realization (inbound): `Potential<T>::actualize` with an explicit parse budget.
 Textualization (outbound): `datomize` -> `protosize` -> `textualize`.
+Skill deployment discovers the authored Markdown sources in the selected
+Curriculum checkout and renders that source catalog into each supported skill
+surface.
 
 ## Modules
 

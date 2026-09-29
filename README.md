@@ -2,7 +2,8 @@
 
 Curriculum data deployment runtime. Projects a Curriculum data checkout into
 a consumer workspace: generates skill companions, role packets, and cleanup
-inventories.
+inventories. The authored checkout defines the skill catalog; the runtime does
+not duplicate it as a fixed count.
 
 ## Version
 
