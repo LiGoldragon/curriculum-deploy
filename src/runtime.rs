@@ -298,7 +298,10 @@ impl Deployment {
         let RolesDocument::Roles(roles) = Potential::<RolesDocument>::from(source)
             .actualize_with_limit(16_384)
             .map_err(DatomFaulting::datom_fault)?;
-        let packets = roles.packets().map_err(Error::Roles)?;
+        let mut packets = roles.packets().map_err(Error::Roles)?;
+        for packet in &mut packets {
+            packet.append_authored_procedure(&workspace_root)?;
+        }
         Ok(Self {
             workspace: workspace_root,
             skills,

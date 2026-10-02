@@ -6,6 +6,32 @@ pub struct RolePacket {
     pub text: String,
 }
 
+impl RolePacket {
+    /// A Claude role whose workspace holds `subagents/<name>.md` carries that
+    /// authored procedure after its role modules.
+    pub fn append_authored_procedure(
+        &mut self,
+        workspace: &std::path::Path,
+    ) -> Result<(), crate::runtime::Error> {
+        let Some(name) = self
+            .path
+            .strip_prefix(".claude/agents/")
+            .and_then(|rest| rest.strip_suffix(".md"))
+        else {
+            return Ok(());
+        };
+        let source = workspace.join("subagents").join(format!("{name}.md"));
+        if !source.is_file() {
+            return Ok(());
+        }
+        let procedure = std::fs::read_to_string(&source)
+            .map_err(|error| crate::runtime::Error::Read(source, error))?;
+        self.text.push('\n');
+        self.text.push_str(&procedure);
+        Ok(())
+    }
+}
+
 trait EffortRendering {
     fn lower(&self) -> &'static str;
     fn same(&self, other: &Self) -> bool;

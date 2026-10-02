@@ -421,3 +421,40 @@ fn curriculum_roles_round_trip_through_textualize() {
         "round trip changed the roles"
     );
 }
+
+#[test]
+#[ignore = "requires the externally owned Curriculum data fixture"]
+fn authored_subagent_procedure_is_carried_into_its_claude_role() {
+    let data = tempdir().expect("data root");
+    fs::create_dir_all(data.path().join("skills")).expect("skills directory");
+    fs::copy(
+        Path::new(&data_root()).join("roles.datom"),
+        data.path().join("roles.datom"),
+    )
+    .expect("role data");
+    let workspace = tempdir().expect("workspace");
+    fs::create_dir_all(workspace.path().join("subagents")).expect("subagents directory");
+    fs::write(
+        workspace.path().join("subagents/book.md"),
+        "# Book\n\nProcedure sentinel.\n",
+    )
+    .expect("authored procedure");
+
+    let output = Command::new(binary())
+        .arg(format!(
+            "Generate.{{ «{}» «{}» }}",
+            data.path().display(),
+            workspace.path().display()
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(output.status.success(), "{output:?}");
+
+    let book = fs::read_to_string(workspace.path().join(".claude/agents/book.md"))
+        .expect("generated book agent");
+    assert!(book.contains("model: 'opus'"), "{book}");
+    assert!(book.contains("# Book\n\nProcedure sentinel.\n"), "{book}");
+    let tester = fs::read_to_string(workspace.path().join(".claude/agents/tester.md"))
+        .expect("generated tester agent");
+    assert!(!tester.contains("sentinel"), "a role without a source stays a stub");
+}
