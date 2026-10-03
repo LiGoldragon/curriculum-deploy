@@ -26,9 +26,9 @@ Output is printed as datom on stdout. Faults are printed as datom on stderr.
 
 | Crate | Version | Rev |
 |---|---|---|
-| protos | 0.30.1 | 171b21f65337 |
-| datom-codec | 0.27.0 | 6dccc76b7591 |
-| ethos-zero | 9.0.0 (dev)| b232d35e0301 |
+| protos | 0.32.2 | 15b41da8f257 |
+| datom-codec | 0.32.2 | 4dff16b4f741 |
+| ethos-zero | 16.0.0 | c2653dd82adb |
 
 ## Ethos declaration
 

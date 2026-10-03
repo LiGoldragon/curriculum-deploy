@@ -3,7 +3,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use datom_codec::{Actualizing, Budget, Composing, Datom, Datomizable, Potential};
+use datom_codec::{Actualizing, Budget, Composing, Datomizable, Potential};
 use protos::{Protosizable, ReaderBudget, Textualizable};
 use thiserror::Error as ThisError;
 
@@ -65,7 +65,7 @@ trait DatomTextualizing {
     fn datom_text(&self) -> String;
 }
 
-impl<T: Datomizable<Output = Datom>> DatomTextualizing for T {
+impl<T: Datomizable> DatomTextualizing for T {
     fn datom_text(&self) -> String {
         self.datomize(vec![]).protosize().textualize()
     }

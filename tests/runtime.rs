@@ -456,5 +456,23 @@ fn authored_subagent_procedure_is_carried_into_its_claude_role() {
     assert!(book.contains("# Book\n\nProcedure sentinel.\n"), "{book}");
     let tester = fs::read_to_string(workspace.path().join(".claude/agents/tester.md"))
         .expect("generated tester agent");
-    assert!(!tester.contains("sentinel"), "a role without a source stays a stub");
+    assert!(
+        !tester.contains("sentinel"),
+        "a role without a source stays a stub"
+    );
+}
+
+#[test]
+fn generated_values_archive_and_read_back_with_rkyv() {
+    let configuration = curriculum_deploy::generated::Configuration {
+        first_string: "/curriculum".into(),
+        second_string: "/primary".into(),
+    };
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&configuration).expect("archives");
+    let read =
+        rkyv::from_bytes::<curriculum_deploy::generated::Configuration, rkyv::rancor::Error>(
+            &bytes,
+        )
+        .expect("reads back");
+    assert_eq!(read, configuration);
 }

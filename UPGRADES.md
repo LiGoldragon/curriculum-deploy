@@ -1,5 +1,23 @@
 # Upgrades
 
+## 0.7.0
+
+Breaking: repinned to ethos-zero 16.0.0, protos 0.32.2 and datom-codec 0.32.2.
+
+### What changed
+
+- `src/generated.rs` is regenerated: every type derives rkyv Archive,
+  Serialize, Deserialize plus Clone, Debug, PartialEq, Eq, Hash; Datomizable
+  and Composing sit behind a `datom` feature.
+- The crate depends on rkyv 0.8 and declares `datom`, a default feature. The
+  runtime textualizes always, so datom-codec stays unconditional (with its
+  `rkyv` feature); building with `--no-default-features` is unsupported.
+- `Datomizable` no longer has an `Output` associated type.
+- Reply text from the vertical canonical print follows protos 0.32.
+
+To deploy: land this source and let Primary's curriculum-deploy projection
+repin to it; no data migration is needed.
+
 ## 0.6.0
 
 Breaking: the runtime now uses the final Protos, Datom, and Ethos stack.
