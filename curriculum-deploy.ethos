@@ -1,13 +1,16 @@
 ; Curriculum deployment runtime types.
 ;
 ; The request root is a data enum whose variants are the main operations.
-; No CurriculumRequest wrapper: Generate.{ «/curriculum» «/primary» } is the
-; whole request.
+; No CurriculumRequest wrapper:
+; Generate.{ «/curriculum» [ Psyche.«/psyche» Mind.«/mind» Field.«/field» ] «/primary» }
+; is the whole request. Curriculum gives the role data; each skill source is a
+; directory of skill Markdown declared with its aspect.
 
 Library
 []
 
-[ Configuration.{ String String }
+[ SkillSource.[ Psyche.String Mind.String Field.String ]
+  Configuration.{ String Vector<SkillSource> String }
   Request.[ Generate.Configuration Check.Configuration Visualize.Configuration ]
   Output.[ Generated.{ Integer Integer }
            Checked.{ Integer Integer }

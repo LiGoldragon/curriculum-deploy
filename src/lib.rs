@@ -1,3 +1,4 @@
+mod catalog;
 #[allow(clippy::enum_variant_names)]
 #[doc(hidden)]
 pub mod generated;

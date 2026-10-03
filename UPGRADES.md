@@ -1,5 +1,26 @@
 # Upgrades
 
+## 0.8.0
+
+Breaking: skills come from declared skill sources, not from the Curriculum
+checkout.
+
+### What changed
+
+- The request is `Generate.{ «/curriculum» [ Psyche.«/dir» Mind.«/dir» Field.«/dir» ] «/workspace» }`.
+  Each `SkillSource` names its aspect and the directory whose `*.md` files are
+  its skills. Curriculum contributes only `roles.datom`; a `skills/` directory
+  left in it is read only when declared as a source.
+- The catalog is the union of the sources ordered by name. A skill defined by
+  two sources is refused with `skill <name> is defined by two sources: ...`,
+  and nothing is written.
+- Generated output for an unchanged set of skills is byte-identical to 0.7.0;
+  the `three-source-parity` Nix check proves it against the 0.7.0 runtime.
+
+To deploy: until the skills move, a consumer keeps today's catalog by
+declaring Curriculum's own `skills/` directory as one source; after the move it
+declares the three skill repositories instead.
+
 ## 0.7.0
 
 Breaking: repinned to ethos-zero 16.0.0, protos 0.32.2 and datom-codec 0.32.2.

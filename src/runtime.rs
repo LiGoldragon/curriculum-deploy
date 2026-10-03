@@ -7,6 +7,7 @@ use datom_codec::{Actualizing, Budget, Composing, Datomizable, Potential};
 use protos::{Protosizable, ReaderBudget, Textualizable};
 use thiserror::Error as ThisError;
 
+use crate::catalog::SkillCatalog;
 use crate::generated::{
     Checked_Data, Generated_Data, GeneratedRoleOutputDocument, GeneratedRoleOutputs, Output,
     Request, RolesDocument, Visualized_Data,
@@ -27,6 +28,12 @@ pub enum Error {
     Different(PathBuf),
     #[error("roles: {0}")]
     Roles(String),
+    #[error("skill {name} is defined by two sources: {first} and {second}")]
+    DuplicateSkill {
+        name: String,
+        first: String,
+        second: String,
+    },
     #[error("skill template {source_path}: {message}")]
     Template {
         source_path: PathBuf,
@@ -103,41 +110,33 @@ fn actualize_request(text: &str) -> Result<Request, Error> {
 
 impl Request {
     fn execute(self) -> Result<String, Error> {
-        let (mode, data_root, workspace_root) = match self {
-            Self::Generate(c) => (
-                Mode::Generate,
-                PathBuf::from(c.first_string),
-                PathBuf::from(c.second_string),
-            ),
-            Self::Check(c) => (
-                Mode::Check,
-                PathBuf::from(c.first_string),
-                PathBuf::from(c.second_string),
-            ),
-            Self::Visualize(c) => (
-                Mode::Visualize,
-                PathBuf::from(c.first_string),
-                PathBuf::from(c.second_string),
-            ),
+        let (mode, configuration) = match self {
+            Self::Generate(configuration) => (Mode::Generate, configuration),
+            Self::Check(configuration) => (Mode::Check, configuration),
+            Self::Visualize(configuration) => (Mode::Visualize, configuration),
         };
-        let deployment = Deployment::read(data_root, workspace_root)?;
+        let deployment = Deployment::read(
+            PathBuf::from(configuration.first_string),
+            SkillCatalog::read(&configuration.skill_source_vector)?,
+            PathBuf::from(configuration.second_string),
+        )?;
         let output = match mode {
             Mode::Generate => {
                 deployment.write()?;
                 Output::Generated(Generated_Data {
-                    first_integer: deployment.skills.len() as i64,
+                    first_integer: deployment.skills.count() as i64,
                     second_integer: deployment.roles.len() as i64,
                 })
             }
             Mode::Check => {
                 deployment.check()?;
                 Output::Checked(Checked_Data {
-                    first_integer: deployment.skills.len() as i64,
+                    first_integer: deployment.skills.count() as i64,
                     second_integer: deployment.roles.len() as i64,
                 })
             }
             Mode::Visualize => Output::Visualized(Visualized_Data {
-                first_integer: deployment.skills.len() as i64,
+                first_integer: deployment.skills.count() as i64,
                 second_integer: deployment.roles.len() as i64,
             }),
         };
@@ -153,14 +152,8 @@ enum Mode {
 
 struct Deployment {
     workspace: PathBuf,
-    skills: Vec<Skill>,
+    skills: SkillCatalog,
     roles: Vec<RolePacket>,
-}
-
-struct Skill {
-    name: String,
-    source: PathBuf,
-    body: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -269,30 +262,12 @@ impl SkillBodyRendering for SkillTarget {
 }
 
 impl Deployment {
-    fn read(data_root: PathBuf, workspace_root: PathBuf) -> Result<Self, Error> {
-        let skills_root = data_root.join("skills");
-        let mut skills = fs::read_dir(&skills_root)
-            .map_err(|error| Error::Read(skills_root.clone(), error))?
-            .filter_map(Result::ok)
-            .map(|entry| entry.path())
-            .filter(|path| path.extension().is_some_and(|value| value == "md"))
-            .map(|path| {
-                let name = path
-                    .file_stem()
-                    .expect("markdown stem")
-                    .to_string_lossy()
-                    .into_owned();
-                let body =
-                    fs::read_to_string(&path).map_err(|error| Error::Read(path.clone(), error))?;
-                Ok(Skill {
-                    name,
-                    source: path,
-                    body,
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
-        skills.sort_by(|left, right| left.name.cmp(&right.name));
-        let role_path = data_root.join("roles.datom");
+    fn read(
+        curriculum_root: PathBuf,
+        skills: SkillCatalog,
+        workspace_root: PathBuf,
+    ) -> Result<Self, Error> {
+        let role_path = curriculum_root.join("roles.datom");
         let source =
             fs::read_to_string(&role_path).map_err(|error| Error::Read(role_path, error))?;
         let RolesDocument::Roles(roles) = Potential::<RolesDocument>::from(source)
@@ -311,7 +286,7 @@ impl Deployment {
 
     fn outputs(&self) -> Result<Vec<(PathBuf, String)>, Error> {
         let mut outputs = Vec::new();
-        for skill in &self.skills {
+        for skill in self.skills.skills() {
             for (surface, target) in [
                 (".agents/skills", SkillTarget::Codex),
                 (".claude/skills", SkillTarget::Claude),
@@ -380,7 +355,7 @@ impl Deployment {
                 let entry = entry.map_err(|error| Error::Read(path.clone(), error))?;
                 let skill_path = entry.path().join("SKILL.md");
                 let name = entry.file_name().to_string_lossy().into_owned();
-                if skill_path.is_file() && !self.skills.iter().any(|skill| skill.name == name) {
+                if skill_path.is_file() && !self.skills.defines(&name) {
                     let retired = entry.path();
                     fs::remove_dir_all(&retired).map_err(|error| Error::Write(retired, error))?;
                 }

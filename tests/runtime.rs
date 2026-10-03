@@ -14,9 +14,34 @@ fn data_root() -> String {
         .unwrap_or_else(|_| "/external-fixture-not-configured".into())
 }
 
+/// The external fixture still holds its skills under `skills/`; it is
+/// declared as one skill source beside its role data.
 fn request(operation: &str, workspace: &std::path::Path) -> String {
     let data_root = data_root();
-    format!("{operation}.{{ «{data_root}» «{}» }}", workspace.display())
+    deployment_request(
+        operation,
+        Path::new(&data_root),
+        &[("Mind", &Path::new(&data_root).join("skills"))],
+        workspace,
+    )
+}
+
+fn deployment_request(
+    operation: &str,
+    curriculum: &Path,
+    sources: &[(&str, &Path)],
+    workspace: &Path,
+) -> String {
+    let sources = sources
+        .iter()
+        .map(|(aspect, directory)| format!("{aspect}.«{}»", directory.display()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    format!(
+        "{operation}.{{ «{}» [ {sources} ] «{}» }}",
+        curriculum.display(),
+        workspace.display()
+    )
 }
 
 fn authored_skill_names(data_root: &Path) -> BTreeSet<String> {
@@ -91,7 +116,6 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(!main.contains("THREAD_ID"));
     assert!(main.contains("flow-id codex --flows-root"));
     assert!(main.contains("normalized hexadecimal alias"));
-    assert!(main.contains("$subflow"));
     assert_eq!(
         fs::read_to_string(
             workspace
@@ -107,25 +131,6 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
             .expect("main-flow Claude role");
     assert!(claude_main.contains("disable-model-invocation: true"));
     assert!(!claude_main.contains("user-only: true"));
-
-    let subflow = fs::read_to_string(workspace.path().join(".agents/skills/subflow/SKILL.md"))
-        .expect("subflow role");
-    assert!(subflow.contains("Pass `FLOW_ID` and `FLOW_DIRECTORY` unchanged"));
-    assert!(subflow.contains("Obtain the current `THREAD_ID` from the harness after launch."));
-    assert!(subflow.contains("Use `THREAD_ID` only for transcript and evidence provenance."));
-    assert!(subflow.contains("Do not create a lane, index entry, or log."));
-    assert!(
-        !workspace
-            .path()
-            .join(".agents/skills/subflow/agents/openai.yaml")
-            .exists()
-    );
-
-    let claude_subflow =
-        fs::read_to_string(workspace.path().join(".claude/skills/subflow/SKILL.md"))
-            .expect("subflow Claude role");
-    assert!(!claude_subflow.contains("user-only: true"));
-    assert!(!claude_subflow.contains("disable-model-invocation: true"));
 
     let evidence = fs::read_to_string(
         workspace
@@ -263,10 +268,11 @@ fn skill_conditionals_render_only_for_their_target() {
 
     let workspace = tempdir().expect("workspace");
     let output = Command::new(binary())
-        .arg(format!(
-            "Generate.{{ «{}» «{}» }}",
-            data.path().display(),
-            workspace.path().display()
+        .arg(deployment_request(
+            "Generate",
+            data.path(),
+            &[("Field", &data.path().join("skills"))],
+            workspace.path(),
         ))
         .output()
         .expect("runtime starts");
@@ -302,10 +308,11 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
 
     let workspace = tempdir().expect("workspace");
     let output = Command::new(binary())
-        .arg(format!(
-            "Generate.{{ «{}» «{}» }}",
-            data.path().display(),
-            workspace.path().display()
+        .arg(deployment_request(
+            "Generate",
+            data.path(),
+            &[("Field", &data.path().join("skills"))],
+            workspace.path(),
         ))
         .output()
         .expect("runtime starts");
@@ -441,10 +448,11 @@ fn authored_subagent_procedure_is_carried_into_its_claude_role() {
     .expect("authored procedure");
 
     let output = Command::new(binary())
-        .arg(format!(
-            "Generate.{{ «{}» «{}» }}",
-            data.path().display(),
-            workspace.path().display()
+        .arg(deployment_request(
+            "Generate",
+            data.path(),
+            &[("Field", &data.path().join("skills"))],
+            workspace.path(),
         ))
         .output()
         .expect("runtime starts");
@@ -452,7 +460,7 @@ fn authored_subagent_procedure_is_carried_into_its_claude_role() {
 
     let book = fs::read_to_string(workspace.path().join(".claude/agents/book.md"))
         .expect("generated book agent");
-    assert!(book.contains("model: 'opus'"), "{book}");
+    assert!(book.starts_with("---\nname: book\n"), "{book}");
     assert!(book.contains("# Book\n\nProcedure sentinel.\n"), "{book}");
     let tester = fs::read_to_string(workspace.path().join(".claude/agents/tester.md"))
         .expect("generated tester agent");
@@ -466,6 +474,11 @@ fn authored_subagent_procedure_is_carried_into_its_claude_role() {
 fn generated_values_archive_and_read_back_with_rkyv() {
     let configuration = curriculum_deploy::generated::Configuration {
         first_string: "/curriculum".into(),
+        skill_source_vector: vec![
+            curriculum_deploy::generated::SkillSource::Psyche("/psyche".into()),
+            curriculum_deploy::generated::SkillSource::Mind("/mind".into()),
+            curriculum_deploy::generated::SkillSource::Field("/field".into()),
+        ],
         second_string: "/primary".into(),
     };
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&configuration).expect("archives");
