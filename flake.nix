@@ -53,8 +53,9 @@
 
         # Today's generator over Curriculum holding every skill, against this
         # runtime over three aspect sources that together hold exactly those
-        # skills and a Curriculum root holding only role data. The two
-        # workspaces and receipts must be identical byte for byte.
+        # skills and a Curriculum root holding only role data. Every surface
+        # the baseline writes and the receipts must be identical byte for
+        # byte; the OpenCode surface is the one addition.
         threeSourceParity = pkgs.runCommand "curriculum-deploy-three-source-parity" { } ''
           set -eu
           cd "$TMPDIR"
@@ -82,7 +83,9 @@
             "Generate.{ «$TMPDIR/curriculum» [ Psyche.«$TMPDIR/psyche-skills» Mind.«$TMPDIR/mind-skills» Field.«$TMPDIR/field-skills» ] «$TMPDIR/generated» }" \
             > generated.receipt
 
-          diff -r today generated
+          test ! -e today/.opencode
+          test "$(ls generated/.opencode/skills | wc -l)" = "$authored"
+          diff -r -x .opencode today generated
           cmp today.receipt generated.receipt
           files=$(find today -type f | wc -l)
           mkdir "$out"

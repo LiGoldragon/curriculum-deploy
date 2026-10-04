@@ -7,7 +7,7 @@ define the skill catalog; the runtime does not duplicate it as a fixed count.
 
 ## Version
 
-0.8.0
+0.9.0
 
 ## Usage
 

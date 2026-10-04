@@ -7,7 +7,7 @@ use datom_codec::{Actualizing, Budget, Composing, Datomizable, Potential};
 use protos::{Protosizable, ReaderBudget, Textualizable};
 use thiserror::Error as ThisError;
 
-use crate::catalog::SkillCatalog;
+use crate::catalog::{Skill, SkillCatalog};
 use crate::generated::{
     Checked_Data, Generated_Data, GeneratedRoleOutputDocument, GeneratedRoleOutputs, Output,
     Request, RolesDocument, Visualized_Data,
@@ -156,11 +156,29 @@ struct Deployment {
     roles: Vec<RolePacket>,
 }
 
+/// A harness a skill body is rendered for. Pi bodies are parsed but have no
+/// projected surface.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SkillTarget {
     Claude,
     Codex,
+    OpenCode,
     Pi,
+}
+
+impl SkillTarget {
+    /// Every target with a projected surface, in output order.
+    const PROJECTED: [Self; 3] = [Self::Codex, Self::Claude, Self::OpenCode];
+
+    /// The workspace directory the harness reads its skills from.
+    fn surface(self) -> Option<&'static str> {
+        match self {
+            Self::Codex => Some(".agents/skills"),
+            Self::Claude => Some(".claude/skills"),
+            Self::OpenCode => Some(".opencode/skills"),
+            Self::Pi => None,
+        }
+    }
 }
 
 struct ConditionalBlock {
@@ -169,10 +187,25 @@ struct ConditionalBlock {
 }
 
 trait SkillBodyRendering {
+    fn rendered_skill(self, skill: &Skill) -> Result<String, Error>;
     fn rendered(self, body: &str, source: &Path) -> Result<String, Error>;
 }
 
 impl SkillBodyRendering for SkillTarget {
+    /// OpenCode loads a skill only when its frontmatter names it; the other
+    /// harnesses name a skill by its directory.
+    fn rendered_skill(self, skill: &Skill) -> Result<String, Error> {
+        let rendered = self.rendered(&skill.body, &skill.source)?;
+        if self != Self::OpenCode {
+            return Ok(rendered);
+        }
+        let name = format!("name: {}\n", skill.name);
+        Ok(match rendered.strip_prefix("---\n") {
+            Some(rest) => format!("---\n{name}{rest}"),
+            None => format!("---\n{name}---\n{rendered}"),
+        })
+    }
+
     fn rendered(self, body: &str, source: &Path) -> Result<String, Error> {
         let mut rendered = String::new();
         let mut blocks = Vec::<ConditionalBlock>::new();
@@ -192,6 +225,7 @@ impl SkillBodyRendering for SkillTarget {
             let selected = match directive {
                 "{% if claude %}" => Some(self == Self::Claude),
                 "{% if codex %}" => Some(self == Self::Codex),
+                "{% if opencode %}" => Some(self == Self::OpenCode),
                 "{% if pi %}" => Some(self == Self::Pi),
                 "{% raw %}" => {
                     raw = true;
@@ -287,13 +321,11 @@ impl Deployment {
     fn outputs(&self) -> Result<Vec<(PathBuf, String)>, Error> {
         let mut outputs = Vec::new();
         for skill in self.skills.skills() {
-            for (surface, target) in [
-                (".agents/skills", SkillTarget::Codex),
-                (".claude/skills", SkillTarget::Claude),
-            ] {
+            for target in SkillTarget::PROJECTED {
+                let surface = target.surface().expect("projected target has a surface");
                 outputs.push((
                     PathBuf::from(surface).join(&skill.name).join("SKILL.md"),
-                    target.rendered(&skill.body, &skill.source)?,
+                    target.rendered_skill(skill)?,
                 ));
             }
             if user_only(&skill.body) {
@@ -346,7 +378,8 @@ impl Deployment {
     }
 
     fn clean_previous_skills(&self) -> Result<(), Error> {
-        for relative in [Path::new(".agents/skills"), Path::new(".claude/skills")] {
+        for target in SkillTarget::PROJECTED {
+            let relative = Path::new(target.surface().expect("projected target has a surface"));
             let path = self.safe(relative)?;
             if !path.exists() {
                 continue;

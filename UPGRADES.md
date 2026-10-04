@@ -1,5 +1,27 @@
 # Upgrades
 
+## 0.9.0
+
+Additive: a third projected surface, `.opencode/skills/<name>/SKILL.md`, for
+OpenCode.
+
+### What changed
+
+- A skill body may carry `{% if opencode %}` blocks, selected only for the
+  OpenCode surface, as `{% if claude %}` and `{% if codex %}` are for theirs.
+- The OpenCode body opens with frontmatter whose first key is
+  `name: <skill name>`: OpenCode loads a skill only when its frontmatter names
+  it. A body without frontmatter receives one holding only that name.
+- Regeneration removes a retired skill from `.opencode/skills` as it does from
+  the other surfaces.
+- The `.agents/skills`, `.claude/skills`, role packets and receipt are
+  unchanged byte for byte; the `three-source-parity` Nix check compares them
+  against the 0.7.0 runtime with the OpenCode surface excluded and requires
+  that surface to hold every authored skill.
+
+To deploy: repin the consumer's curriculum-deploy and regenerate; the new
+`.opencode/skills` tree is committed with the consumer's other generated trees.
+
 ## 0.8.0
 
 Breaking: skills come from declared skill sources, not from the Curriculum

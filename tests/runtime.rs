@@ -94,6 +94,11 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
         source_skills,
         "Claude generated skills must exactly cover the authored source catalog"
     );
+    assert_eq!(
+        generated_skill_names(workspace.path(), ".opencode/skills"),
+        source_skills,
+        "OpenCode generated skills must exactly cover the authored source catalog"
+    );
     assert!(
         workspace
             .path()
@@ -262,7 +267,7 @@ fn skill_conditionals_render_only_for_their_target() {
     .expect("empty role data");
     fs::write(
         skills.join("commands.md"),
-        "Shared command.\n{% if claude %}\nclaude command\n{% endif %}\n{% if codex %}\ncodex command\n{% endif %}\n",
+        "Shared command.\n{% if claude %}\nclaude command\n{% endif %}\n{% if codex %}\ncodex command\n{% endif %}\n{% if opencode %}\nopencode command\n{% endif %}\n{% if pi %}\npi command\n{% endif %}\n",
     )
     .expect("conditional skill");
 
@@ -282,11 +287,88 @@ fn skill_conditionals_render_only_for_their_target() {
         .expect("Claude skill");
     assert!(claude.contains("claude command"));
     assert!(!claude.contains("codex command"));
+    assert!(!claude.contains("opencode command"));
+    assert!(!claude.contains("pi command"));
 
     let codex = fs::read_to_string(workspace.path().join(".agents/skills/commands/SKILL.md"))
         .expect("Codex skill");
     assert!(codex.contains("codex command"));
     assert!(!codex.contains("claude command"));
+    assert!(!codex.contains("opencode command"));
+    assert!(!codex.contains("pi command"));
+
+    let opencode = fs::read_to_string(workspace.path().join(".opencode/skills/commands/SKILL.md"))
+        .expect("OpenCode skill");
+    assert_eq!(
+        opencode, "---\nname: commands\n---\nShared command.\nopencode command\n",
+        "OpenCode receives only its own block, under frontmatter that names the skill"
+    );
+}
+
+#[test]
+fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged() {
+    let data = tempdir().expect("data root");
+    let skills = data.path().join("skills");
+    fs::create_dir_all(&skills).expect("skills directory");
+    fs::write(
+        data.path().join("roles.datom"),
+        "Roles.{ [] [] [] [] [] [] [] [] }",
+    )
+    .expect("empty role data");
+    let body = "---\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n";
+    fs::write(skills.join("spirit.md"), body).expect("spirit skill");
+
+    let workspace = tempdir().expect("workspace");
+    let output = Command::new(binary())
+        .arg(deployment_request(
+            "Generate",
+            data.path(),
+            &[("Psyche", &data.path().join("skills"))],
+            workspace.path(),
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(output.status.success(), "{output:?}");
+
+    assert_eq!(
+        fs::read_to_string(workspace.path().join(".opencode/skills/spirit/SKILL.md"))
+            .expect("OpenCode skill"),
+        "---\nname: spirit\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n"
+    );
+    for surface in [".agents/skills", ".claude/skills"] {
+        assert_eq!(
+            fs::read_to_string(workspace.path().join(surface).join("spirit/SKILL.md"))
+                .expect("generated skill"),
+            body,
+            "{surface} keeps the authored body byte for byte"
+        );
+    }
+
+    let check = Command::new(binary())
+        .arg(deployment_request(
+            "Check",
+            data.path(),
+            &[("Psyche", &data.path().join("skills"))],
+            workspace.path(),
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(check.status.success(), "{check:?}");
+
+    let retired = workspace.path().join(".opencode/skills/retired");
+    fs::create_dir_all(&retired).expect("retired OpenCode skill directory");
+    fs::write(retired.join("SKILL.md"), "retired").expect("retired OpenCode skill");
+    let regenerated = Command::new(binary())
+        .arg(deployment_request(
+            "Generate",
+            data.path(),
+            &[("Psyche", &data.path().join("skills"))],
+            workspace.path(),
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(regenerated.status.success(), "{regenerated:?}");
+    assert!(!retired.exists(), "a retired OpenCode skill is removed");
 }
 
 #[test]
