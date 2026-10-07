@@ -169,8 +169,9 @@ pub struct Roles {
     pub role_depth_vector: std::vec::Vec<RoleDepth>,
     pub role_description_vector: std::vec::Vec<RoleDescription>,
     pub role_alias_vector: std::vec::Vec<RoleAlias>,
-    pub string_vector: std::vec::Vec<String>,
+    pub first_string_vector: std::vec::Vec<String>,
     pub target_insertion_vector: std::vec::Vec<TargetInsertion>,
+    pub second_string_vector: std::vec::Vec<String>,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

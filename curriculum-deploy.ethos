@@ -29,7 +29,7 @@ Library
   RoleDescription.{ String String String }
   RoleAlias.{ String String String String Vector<Surface> }
   TargetInsertion.{ String Surface Vector<String> }
-  Roles.{ Vector<RoleModule> Vector<Model> Vector<RolePermission> Vector<RoleDepth> Vector<RoleDescription> Vector<RoleAlias> Vector<String> Vector<TargetInsertion> }
+  Roles.{ Vector<RoleModule> Vector<Model> Vector<RolePermission> Vector<RoleDepth> Vector<RoleDescription> Vector<RoleAlias> Vector<String> Vector<TargetInsertion> Vector<String> }
   RolesDocument.[ Roles.Roles ] ]
 
 []

@@ -1,4 +1,9 @@
-use crate::generated::{Effort, Permission, Provider, Roles, Surface};
+use std::collections::BTreeSet;
+
+use crate::{
+    catalog::SkillCatalog,
+    generated::{Effort, Permission, Provider, Roles, Surface},
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RolePacket {
@@ -7,6 +12,32 @@ pub struct RolePacket {
 }
 
 impl RolePacket {
+    pub fn append_standing_skills(
+        &mut self,
+        skills: &SkillCatalog,
+        names: &[String],
+    ) -> Result<(), crate::runtime::Error> {
+        for name in names {
+            let skill = skills.named(name).ok_or_else(|| {
+                crate::runtime::Error::Roles(format!("missing standing skill {name}"))
+            })?;
+            let body = skill
+                .body
+                .split_once("\n---\n")
+                .map(|(_, body)| body)
+                .unwrap_or(&skill.body)
+                .trim();
+            if body.is_empty() {
+                return Err(crate::runtime::Error::Roles(format!(
+                    "empty standing skill {name}"
+                )));
+            }
+            self.text.push_str("\n\n");
+            self.text.push_str(body);
+            self.text.push('\n');
+        }
+        Ok(())
+    }
     /// A Claude role whose workspace holds `subagents/<name>.md` carries that
     /// authored procedure after its role modules.
     pub fn append_authored_procedure(
@@ -164,11 +195,11 @@ impl Roles {
         if permission.permission.restricted() {
             modules.push(permission.second_string.clone());
         }
-        for module_id in &self.string_vector {
+        for module_id in &self.first_string_vector {
             modules.push(self.module(module_id)?);
         }
         for insertion in self.target_insertion_vector.iter().filter(|entry| {
-            entry.surface.same(surface) && self.string_vector.contains(&entry.string)
+            entry.surface.same(surface) && self.first_string_vector.contains(&entry.string)
         }) {
             for module_id in &insertion.string_vector {
                 modules.push(self.module(module_id)?);
@@ -226,6 +257,19 @@ impl Roles {
             .map(|module| module.second_string.clone())
             .ok_or_else(|| format!("missing role module {identifier}"))
     }
+
+    pub fn standing_skills(&self) -> Result<&[String], String> {
+        let mut names = BTreeSet::new();
+        for name in &self.second_string_vector {
+            if name.is_empty() {
+                return Err("empty standing skill selection".into());
+            }
+            if !names.insert(name) {
+                return Err(format!("duplicate standing skill {name}"));
+            }
+        }
+        Ok(&self.second_string_vector)
+    }
 }
 
 #[cfg(test)]
@@ -244,8 +288,9 @@ mod tests {
             role_depth_vector: vec![],
             role_description_vector: vec![],
             role_alias_vector: vec![],
-            string_vector: vec![],
+            first_string_vector: vec![],
             target_insertion_vector: vec![],
+            second_string_vector: vec![],
         };
         assert!(roles.packets().expect("packets").is_empty());
         let text = RolesDocument::Roles(roles)
@@ -265,6 +310,66 @@ mod tests {
             round_tripped.datomize(vec![]).protosize().textualize(),
             text,
             "round trip changed the roles"
+        );
+    }
+
+    #[test]
+    fn standing_skill_selection_refuses_empty_and_duplicate_names() {
+        let mut roles = Roles {
+            role_module_vector: vec![],
+            model_vector: vec![],
+            role_permission_vector: vec![],
+            role_depth_vector: vec![],
+            role_description_vector: vec![],
+            role_alias_vector: vec![],
+            first_string_vector: vec![],
+            target_insertion_vector: vec![],
+            second_string_vector: vec![String::new()],
+        };
+        assert_eq!(
+            roles.standing_skills(),
+            Err("empty standing skill selection".into())
+        );
+
+        roles.second_string_vector = vec!["spirit".into(), "spirit".into()];
+        assert_eq!(
+            roles.standing_skills(),
+            Err("duplicate standing skill spirit".into())
+        );
+    }
+
+    #[test]
+    fn standing_skill_append_refuses_missing_and_empty_sources() {
+        let root = tempfile::tempdir().expect("skill source");
+        std::fs::write(root.path().join("empty.md"), "---\nname: empty\n---\n\n")
+            .expect("empty source");
+        let catalog = SkillCatalog::read(&[crate::generated::SkillSource::Mind(
+            root.path().display().to_string(),
+        )])
+        .expect("catalog");
+
+        let mut missing = RolePacket {
+            path: "role".into(),
+            text: "role".into(),
+        };
+        assert_eq!(
+            missing
+                .append_standing_skills(&catalog, &["missing".into()])
+                .expect_err("missing standing skill")
+                .to_string(),
+            "roles: missing standing skill missing"
+        );
+
+        let mut empty = RolePacket {
+            path: "role".into(),
+            text: "role".into(),
+        };
+        assert_eq!(
+            empty
+                .append_standing_skills(&catalog, &["empty".into()])
+                .expect_err("empty standing skill")
+                .to_string(),
+            "roles: empty standing skill empty"
         );
     }
 }
