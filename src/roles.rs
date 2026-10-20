@@ -341,9 +341,10 @@ mod tests {
     #[test]
     fn standing_skill_append_refuses_missing_and_empty_sources() {
         let root = tempfile::tempdir().expect("skill source");
-        std::fs::write(root.path().join("empty.md"), "---\nname: empty\n---\n\n")
-            .expect("empty source");
-        let catalog = SkillCatalog::read(&[crate::generated::SkillSource::Mind(
+        let skills = root.path().join("compensation");
+        std::fs::create_dir(&skills).expect("skill kind directory");
+        std::fs::write(skills.join("empty.md"), "---\nname: empty\n---\n\n").expect("empty source");
+        let catalog = SkillCatalog::read(&[crate::generated::SkillSource::Field(
             root.path().display().to_string(),
         )])
         .expect("catalog");
@@ -366,10 +367,10 @@ mod tests {
         };
         assert_eq!(
             empty
-                .append_standing_skills(&catalog, &["empty".into()])
+                .append_standing_skills(&catalog, &["compensation-empty".into()])
                 .expect_err("empty standing skill")
                 .to_string(),
-            "roles: empty standing skill empty"
+            "roles: empty standing skill compensation-empty"
         );
     }
 }
