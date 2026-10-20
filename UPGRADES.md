@@ -1,5 +1,12 @@
 # Upgrades
 
+## Aspect repositories carry module kinds
+
+`Generate`, `Check`, and `Visualize` now take each aspect repository root and
+read modules from the aspect's declared kind directories. Root Markdown is
+repository documentation and is not projected as a skill. Module identifiers
+are `<kind>-<filename stem>`.
+
 ## 0.9.0
 
 Additive: a third projected surface, `.opencode/skills/<name>/SKILL.md`, for
