@@ -110,6 +110,10 @@ impl SkillCatalog {
         self.skills.iter().any(|skill| skill.name == name)
     }
 
+    pub fn named(&self, name: &str) -> Option<&Skill> {
+        self.skills.iter().find(|skill| skill.name == name)
+    }
+
     pub fn count(&self) -> usize {
         self.skills.len()
     }

@@ -27,7 +27,7 @@ fn deployment_request(
 fn curriculum_with_empty_roles(root: &Path) {
     fs::write(
         root.join("roles.datom"),
-        "Roles.{ [] [] [] [] [] [] [] [] }",
+        "Roles.{ [] [] [] [] [] [] [] [] [] }",
     )
     .expect("empty role data");
 }
