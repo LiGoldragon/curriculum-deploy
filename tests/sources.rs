@@ -25,11 +25,7 @@ fn deployment_request(
 }
 
 fn curriculum_with_empty_roles(root: &Path) {
-    fs::write(
-        root.join("roles.datom"),
-        "Roles.{ [] [] [] [] [] [] [] [] [] }",
-    )
-    .expect("empty role data");
+    fs::write(root.join("roles.datom"), "Roles.{ [] }").expect("empty role data");
 }
 
 fn source_with(root: &Path, name: &str, kind: &str, skills: &[(&str, &str)]) -> std::path::PathBuf {

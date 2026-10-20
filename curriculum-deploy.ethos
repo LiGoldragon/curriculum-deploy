@@ -17,19 +17,14 @@ Library
            Visualized.{ Integer Integer } ]
   GeneratedRoleOutputs.{ Vector<String> }
   GeneratedRoleOutputDocument.[ GeneratedRoleOutputs.GeneratedRoleOutputs ]
-  Provider.[ Claude ChatGpt ]
   Permission.[ Restricted Unrestricted ]
   Effort.[ Low Medium High Xhigh ]
   Surface.[ ClaudeAgent CodexAgent PiAgent ]
-  ModelChoice.{ String Option<Effort> }
-  RoleModule.{ String String }
-  Model.{ String Provider Vector<Effort> }
-  RolePermission.{ String String Permission }
-  RoleDepth.{ String ModelChoice ModelChoice }
-  RoleDescription.{ String String String }
-  RoleAlias.{ String String String String Vector<Surface> }
-  TargetInsertion.{ String Surface Vector<String> }
-  Roles.{ Vector<RoleModule> Vector<Model> Vector<RolePermission> Vector<RoleDepth> Vector<RoleDescription> Vector<RoleAlias> Vector<String> Vector<TargetInsertion> Vector<String> }
+  CallerMetaflow.{ String String String }
+  RoleTools.[ Inherit Explicit.Vector<String> ]
+  RoleCallers.[ Any Only.Vector<CallerMetaflow> ]
+  RoleDefinition.{ String Surface String Effort Permission String Vector<String> RoleTools RoleCallers }
+  Roles.{ Vector<RoleDefinition> }
   RolesDocument.[ Roles.Roles ] ]
 
 []
