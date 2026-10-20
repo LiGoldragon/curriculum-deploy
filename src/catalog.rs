@@ -12,6 +12,16 @@ pub enum Aspect {
     Field,
 }
 
+impl Aspect {
+    fn module_kinds(self) -> &'static [&'static str] {
+        match self {
+            Self::Psyche => &["intent", "spirit", "vision"],
+            Self::Mind => &["inquiry", "knowledge", "role"],
+            Self::Field => &["compensation", "role"],
+        }
+    }
+}
+
 impl fmt::Display for Aspect {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
@@ -22,8 +32,8 @@ impl fmt::Display for Aspect {
     }
 }
 
-/// A declared skill source: a directory whose `*.md` files are skill sources,
-/// read under one aspect.
+/// A declared skill source: an aspect repository whose module-kind
+/// directories contain the Markdown skill sources.
 pub struct DeclaredSource {
     aspect: Aspect,
     directory: PathBuf,
@@ -45,12 +55,27 @@ impl From<&SkillSource> for DeclaredSource {
 
 impl DeclaredSource {
     fn skills(&self) -> Result<Vec<Skill>, Error> {
+        // Read the root even when it contains no module-kind directory, so a
+        // missing declared source is still a typed read error. Markdown at
+        // the repository root is documentation, not a context module.
         fs::read_dir(&self.directory)
-            .map_err(|error| Error::Read(self.directory.clone(), error))?
-            .filter_map(Result::ok)
-            .map(|entry| entry.path())
-            .filter(|path| path.extension().is_some_and(|value| value == "md"))
-            .map(|path| {
+            .map_err(|error| Error::Read(self.directory.clone(), error))?;
+
+        let mut skills = Vec::new();
+        for kind in self.aspect.module_kinds() {
+            let directory = self.directory.join(kind);
+            let entries = match fs::read_dir(&directory) {
+                Ok(entries) => entries,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(Error::Read(directory, error)),
+            };
+            for entry in entries {
+                let path = entry
+                    .map_err(|error| Error::Read(directory.clone(), error))?
+                    .path();
+                if !path.extension().is_some_and(|value| value == "md") {
+                    continue;
+                }
                 let name = path
                     .file_stem()
                     .expect("markdown stem")
@@ -58,14 +83,15 @@ impl DeclaredSource {
                     .into_owned();
                 let body =
                     fs::read_to_string(&path).map_err(|error| Error::Read(path.clone(), error))?;
-                Ok(Skill {
-                    name,
+                skills.push(Skill {
+                    name: format!("{kind}-{name}"),
                     aspect: self.aspect,
                     source: path,
                     body,
-                })
-            })
-            .collect()
+                });
+            }
+        }
+        Ok(skills)
     }
 }
 

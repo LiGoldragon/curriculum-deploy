@@ -306,7 +306,8 @@ fn cli_accepts_only_one_inline_object() {
 #[test]
 fn skill_conditionals_render_only_for_their_target() {
     let data = tempdir().expect("data root");
-    let skills = data.path().join("skills");
+    let source = data.path().join("field");
+    let skills = source.join("compensation");
     fs::create_dir_all(&skills).expect("skills directory");
     fs::write(
         data.path().join("roles.datom"),
@@ -324,31 +325,43 @@ fn skill_conditionals_render_only_for_their_target() {
         .arg(deployment_request(
             "Generate",
             data.path(),
-            &[("Field", &data.path().join("skills"))],
+            &[("Field", &source)],
             workspace.path(),
         ))
         .output()
         .expect("runtime starts");
     assert!(output.status.success(), "{output:?}");
 
-    let claude = fs::read_to_string(workspace.path().join(".claude/skills/commands/SKILL.md"))
-        .expect("Claude skill");
+    let claude = fs::read_to_string(
+        workspace
+            .path()
+            .join(".claude/skills/compensation-commands/SKILL.md"),
+    )
+    .expect("Claude skill");
     assert!(claude.contains("claude command"));
     assert!(!claude.contains("codex command"));
     assert!(!claude.contains("opencode command"));
     assert!(!claude.contains("pi command"));
 
-    let codex = fs::read_to_string(workspace.path().join(".agents/skills/commands/SKILL.md"))
-        .expect("Codex skill");
+    let codex = fs::read_to_string(
+        workspace
+            .path()
+            .join(".agents/skills/compensation-commands/SKILL.md"),
+    )
+    .expect("Codex skill");
     assert!(codex.contains("codex command"));
     assert!(!codex.contains("claude command"));
     assert!(!codex.contains("opencode command"));
     assert!(!codex.contains("pi command"));
 
-    let opencode = fs::read_to_string(workspace.path().join(".opencode/skills/commands/SKILL.md"))
-        .expect("OpenCode skill");
+    let opencode = fs::read_to_string(
+        workspace
+            .path()
+            .join(".opencode/skills/compensation-commands/SKILL.md"),
+    )
+    .expect("OpenCode skill");
     assert_eq!(
-        opencode, "---\nname: commands\n---\nShared command.\nopencode command\n",
+        opencode, "---\nname: compensation-commands\n---\nShared command.\nopencode command\n",
         "OpenCode receives only its own block, under frontmatter that names the skill"
     );
 }
@@ -356,7 +369,8 @@ fn skill_conditionals_render_only_for_their_target() {
 #[test]
 fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged() {
     let data = tempdir().expect("data root");
-    let skills = data.path().join("skills");
+    let source = data.path().join("psyche");
+    let skills = source.join("spirit");
     fs::create_dir_all(&skills).expect("skills directory");
     fs::write(
         data.path().join("roles.datom"),
@@ -371,7 +385,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
         .arg(deployment_request(
             "Generate",
             data.path(),
-            &[("Psyche", &data.path().join("skills"))],
+            &[("Psyche", &source)],
             workspace.path(),
         ))
         .output()
@@ -379,14 +393,23 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
     assert!(output.status.success(), "{output:?}");
 
     assert_eq!(
-        fs::read_to_string(workspace.path().join(".opencode/skills/spirit/SKILL.md"))
-            .expect("OpenCode skill"),
-        "---\nname: spirit\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n"
+        fs::read_to_string(
+            workspace
+                .path()
+                .join(".opencode/skills/spirit-spirit/SKILL.md"),
+        )
+        .expect("OpenCode skill"),
+        "---\nname: spirit-spirit\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n"
     );
     for surface in [".agents/skills", ".claude/skills"] {
         assert_eq!(
-            fs::read_to_string(workspace.path().join(surface).join("spirit/SKILL.md"))
-                .expect("generated skill"),
+            fs::read_to_string(
+                workspace
+                    .path()
+                    .join(surface)
+                    .join("spirit-spirit/SKILL.md"),
+            )
+            .expect("generated skill"),
             body,
             "{surface} keeps the authored body byte for byte"
         );
@@ -396,7 +419,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
         .arg(deployment_request(
             "Check",
             data.path(),
-            &[("Psyche", &data.path().join("skills"))],
+            &[("Psyche", &source)],
             workspace.path(),
         ))
         .output()
@@ -410,7 +433,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
         .arg(deployment_request(
             "Generate",
             data.path(),
-            &[("Psyche", &data.path().join("skills"))],
+            &[("Psyche", &source)],
             workspace.path(),
         ))
         .output()
@@ -422,7 +445,8 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
 #[test]
 fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt() {
     let data = tempdir().expect("data root");
-    let skills = data.path().join("skills");
+    let source = data.path().join("field");
+    let skills = source.join("compensation");
     fs::create_dir_all(&skills).expect("skills directory");
     fs::write(
         data.path().join("roles.datom"),
@@ -441,7 +465,7 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
         .arg(deployment_request(
             "Generate",
             data.path(),
-            &[("Field", &data.path().join("skills"))],
+            &[("Field", &source)],
             workspace.path(),
         ))
         .output()
@@ -459,7 +483,7 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
         fs::read_to_string(
             workspace
                 .path()
-                .join(".agents/skills/main-flow/agents/openai.yaml"),
+                .join(".agents/skills/compensation-main-flow/agents/openai.yaml"),
         )
         .expect("explicit main-flow policy"),
         "policy:\n  allow_implicit_invocation: false\n"
@@ -467,14 +491,14 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
     assert!(
         workspace
             .path()
-            .join(".agents/skills/main-flow/SKILL.md")
+            .join(".agents/skills/compensation-main-flow/SKILL.md")
             .is_file(),
         "the explicit route has a generated source"
     );
     assert!(
         !workspace
             .path()
-            .join(".agents/skills/subflow/agents/openai.yaml")
+            .join(".agents/skills/compensation-subflow/agents/openai.yaml")
             .exists(),
         "ordinary skills retain implicit invocation"
     );

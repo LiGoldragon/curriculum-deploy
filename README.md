@@ -20,10 +20,14 @@ curriculum-deploy 'Visualize.{ «/path/to/curriculum» [ ... ] «/path/to/worksp
 ```
 
 The first position is the Curriculum root; the runtime reads only its
-`roles.datom` there. The second is the vector of skill sources. A source is
-declared by its aspect, `Psyche`, `Mind` or `Field`, carrying the directory
-whose `*.md` files are its skill sources; the runtime imposes no layout on the
-repository holding that directory. The third is the consumer workspace.
+`roles.datom` there. The second is the vector of aspect repositories. Each
+source is declared as `Psyche`, `Mind` or `Field`. The runtime reads Markdown
+modules one level below the repository root, from that aspect's module kinds:
+`intent`, `spirit` and `vision` for Psyche; `inquiry`, `knowledge` and `role`
+for Mind; `compensation` and `role` for Field. A module's stable name is
+`<kind>-<filename stem>`. Root Markdown such as `README.md`, and directories
+outside those module kinds such as `evidence`, are not skills. The third
+position is the consumer workspace.
 
 The catalog is the union of every declared source, ordered by skill name, so
 declaration order does not change the output. A skill name defined by two

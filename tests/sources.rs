@@ -32,11 +32,12 @@ fn curriculum_with_empty_roles(root: &Path) {
     .expect("empty role data");
 }
 
-fn source_with(root: &Path, name: &str, skills: &[(&str, &str)]) -> std::path::PathBuf {
+fn source_with(root: &Path, name: &str, kind: &str, skills: &[(&str, &str)]) -> std::path::PathBuf {
     let directory = root.join(name);
-    fs::create_dir_all(&directory).expect("source directory");
+    let kind_directory = directory.join(kind);
+    fs::create_dir_all(&kind_directory).expect("source directory");
     for (skill, body) in skills {
-        fs::write(directory.join(format!("{skill}.md")), body).expect("skill source");
+        fs::write(kind_directory.join(format!("{skill}.md")), body).expect("skill source");
     }
     directory
 }
@@ -56,16 +57,23 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
     curriculum_with_empty_roles(curriculum.path());
     // Curriculum contributes role data only; a skills directory left in it is
     // not a declared source and is not deployed.
-    source_with(curriculum.path(), "skills", &[("stray", "Not declared.\n")]);
+    source_with(
+        curriculum.path(),
+        "skills",
+        "vision",
+        &[("stray", "Not declared.\n")],
+    );
     let repositories = tempdir().expect("source repositories");
     let psyche = source_with(
         repositories.path(),
         "psyche-skills",
-        &[("vision", "Psyche skill.\n")],
+        "vision",
+        &[("direction", "Psyche skill.\n")],
     );
     let mind = source_with(
         repositories.path(),
         "mind-skills",
+        "knowledge",
         &[
             ("design", "Mind skill.\n"),
             ("testing", "Mind test skill.\n"),
@@ -74,13 +82,17 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
     let field = source_with(
         repositories.path(),
         "field-skills",
+        "compensation",
         &[(
             "operation",
             "---\ndescription: Field\nuser-only: true\n---\n\nField skill.\n",
         )],
     );
     // A non-Markdown file in a source is not a skill.
-    fs::write(field.join("notes.txt"), "not a skill").expect("non-skill file");
+    fs::write(field.join("compensation/notes.txt"), "not a skill").expect("non-skill file");
+    fs::write(psyche.join("README.md"), "repository documentation").expect("root documentation");
+    fs::create_dir_all(mind.join("evidence")).expect("non-module directory");
+    fs::write(mind.join("evidence/report.md"), "not a module").expect("evidence report");
 
     let workspace = tempdir().expect("workspace");
     let output = Command::new(binary())
@@ -98,10 +110,15 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
         "Generated.{ 4 0 }"
     );
 
-    let expected: BTreeSet<String> = ["design", "operation", "testing", "vision"]
-        .into_iter()
-        .map(String::from)
-        .collect();
+    let expected: BTreeSet<String> = [
+        "compensation-operation",
+        "knowledge-design",
+        "knowledge-testing",
+        "vision-direction",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
     assert_eq!(
         generated_skill_names(workspace.path(), ".agents/skills"),
         expected
@@ -111,19 +128,27 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
         expected
     );
     assert_eq!(
-        fs::read_to_string(workspace.path().join(".claude/skills/vision/SKILL.md"))
-            .expect("psyche skill"),
+        fs::read_to_string(
+            workspace
+                .path()
+                .join(".claude/skills/vision-direction/SKILL.md"),
+        )
+        .expect("psyche skill"),
         "Psyche skill.\n"
     );
     assert_eq!(
-        fs::read_to_string(workspace.path().join(".claude/skills/operation/SKILL.md"))
-            .expect("field skill"),
+        fs::read_to_string(
+            workspace
+                .path()
+                .join(".claude/skills/compensation-operation/SKILL.md"),
+        )
+        .expect("field skill"),
         "---\ndescription: Field\ndisable-model-invocation: true\n---\n\nField skill.\n"
     );
     assert!(
         workspace
             .path()
-            .join(".agents/skills/operation/agents/openai.yaml")
+            .join(".agents/skills/compensation-operation/agents/openai.yaml")
             .is_file()
     );
 
@@ -147,14 +172,16 @@ fn a_skill_defined_by_two_sources_is_refused_and_nothing_is_written() {
     let curriculum = tempdir().expect("curriculum root");
     curriculum_with_empty_roles(curriculum.path());
     let repositories = tempdir().expect("source repositories");
-    let psyche = source_with(
+    let mind = source_with(
         repositories.path(),
-        "psyche-skills",
+        "mind-skills",
+        "role",
         &[("alpha", "Psyche alpha.\n"), ("shared", "Psyche shared.\n")],
     );
     let field = source_with(
         repositories.path(),
         "field-skills",
+        "role",
         &[("shared", "Field shared.\n"), ("omega", "Field omega.\n")],
     );
 
@@ -163,7 +190,7 @@ fn a_skill_defined_by_two_sources_is_refused_and_nothing_is_written() {
         .arg(deployment_request(
             "Generate",
             curriculum.path(),
-            &[("Psyche", &psyche), ("Field", &field)],
+            &[("Mind", &mind), ("Field", &field)],
             workspace.path(),
         ))
         .output()
@@ -173,9 +200,9 @@ fn a_skill_defined_by_two_sources_is_refused_and_nothing_is_written() {
     assert_eq!(
         fault.trim(),
         format!(
-            "skill shared is defined by two sources: Psyche {} and Field {}",
-            psyche.join("shared.md").display(),
-            field.join("shared.md").display()
+            "skill role-shared is defined by two sources: Mind {} and Field {}",
+            mind.join("role/shared.md").display(),
+            field.join("role/shared.md").display()
         )
     );
     assert!(output.stdout.is_empty());
