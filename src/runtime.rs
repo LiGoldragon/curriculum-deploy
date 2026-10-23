@@ -12,6 +12,7 @@ use crate::generated::{
     Checked_Data, Generated_Data, GeneratedRoleOutputDocument, GeneratedRoleOutputs, Output,
     Request, RolesDocument, Visualized_Data,
 };
+use crate::role_projection;
 use crate::roles::RolePacket;
 
 #[derive(Debug, ThisError)]
@@ -28,6 +29,12 @@ pub enum Error {
     Different(PathBuf),
     #[error("roles: {0}")]
     Roles(String),
+    #[error("role projection source {0}: {1}")]
+    RoleSource(PathBuf, String),
+    #[error("role projection source rejected request: {0}")]
+    RoleRejected(String),
+    #[error("role projection source returned a mismatched role")]
+    RoleMismatch,
     #[error("skill {name} is defined by two sources: {first} and {second}")]
     DuplicateSkill {
         name: String,
@@ -114,6 +121,14 @@ impl Request {
             Self::Generate(configuration) => (Mode::Generate, configuration),
             Self::Check(configuration) => (Mode::Check, configuration),
             Self::Visualize(configuration) => (Mode::Visualize, configuration),
+            Self::ProjectRoles(configuration) => {
+                return role_projection::project(configuration).map(|count| {
+                    Output::RolesProjected(crate::generated::RolesProjected_Data {
+                        integer: count as i64,
+                    })
+                    .datom_text()
+                });
+            }
         };
         let deployment = Deployment::read(
             PathBuf::from(configuration.first_string),

@@ -20,7 +20,22 @@ the role data.
   skill template rendering, and the typed Datom conversion chain.
 - `src/catalog.rs` -- declared skill sources and the merged skill catalog.
 - `src/roles.rs` -- role packet assembly from the Roles data.
+- `src/role_projection.rs` -- typed ComposeRole client, explicit
+  consumer-to-destination projection, atomic writes, provenance, and owned
+  cleanup.
 - `src/main.rs` -- entry point.
+
+## Workspace role projection
+
+`ProjectRoles` takes the Curriculum Nexus socket, a workspace root, and an
+explicit vector of role/surface selections paired with relative destinations.
+It composes only those selections through the typed `ComposeRole` wire; the
+Curriculum role inventory never implies installation. Each output is written
+atomically and read back. `skills/generated-role-outputs.datom` records the
+paths this adapter owns, while `skills/generated-role-provenance.datom` records
+the source revisions and hashes returned by Curriculum and each output hash.
+Cleanup removes only paths in the prior owned-output inventory and preserves
+every unrelated workspace file.
 
 ## Root-head convention
 

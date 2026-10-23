@@ -11,12 +11,21 @@ Library
 
 [ SkillSource.[ Psyche.String Mind.String Field.String ]
   Configuration.{ String Vector<SkillSource> String }
-  Request.[ Generate.Configuration Check.Configuration Visualize.Configuration ]
+  RoleSelection.{ String Surface }
+  RoleProjection.{ RoleSelection String }
+  RoleProjectionConfiguration.{ String String Vector<RoleProjection> }
+  Request.[ Generate.Configuration Check.Configuration Visualize.Configuration
+            ProjectRoles.RoleProjectionConfiguration ]
   Output.[ Generated.{ Integer Integer }
            Checked.{ Integer Integer }
-           Visualized.{ Integer Integer } ]
+           Visualized.{ Integer Integer }
+           RolesProjected.{ Integer } ]
   GeneratedRoleOutputs.{ Vector<String> }
   GeneratedRoleOutputDocument.[ GeneratedRoleOutputs.GeneratedRoleOutputs ]
+  RoleSourceProvenance.{ String String String String String String String }
+  RoleOutputProvenance.{ String String Surface String String String Vector<RoleSourceProvenance> }
+  GeneratedRoleProvenance.{ Vector<RoleOutputProvenance> }
+  GeneratedRoleProvenanceDocument.[ GeneratedRoleProvenance.GeneratedRoleProvenance ]
   Permission.[ Restricted Unrestricted ]
   Effort.[ Low Medium High Xhigh ]
   Surface.[ ClaudeAgent CodexAgent PiAgent ]
@@ -25,7 +34,23 @@ Library
   RoleCallers.[ Any Only.Vector<CallerMetaflow> ]
   RoleDefinition.{ String Surface String Effort Permission String Vector<String> RoleTools RoleCallers }
   Roles.{ Vector<RoleDefinition> }
-  RolesDocument.[ Roles.Roles ] ]
+  RolesDocument.[ Roles.Roles ]
+  CurriculumTarget.[ Claude Codex Pi OpenCode ]
+  CurriculumStartupPlacement.[ System User ]
+  CurriculumContextProvenance.{ String String String String String String String CurriculumStartupPlacement Integer }
+  CurriculumStartupSelection.{ CallerMetaflow CurriculumTarget Vector<String> Vector<String> }
+  CurriculumStartupComposition.{ String String String String Vector<CurriculumContextProvenance> }
+  CurriculumResolvedModule.{ String String String String String String String String String String String Vector<String> }
+  CurriculumRoleComposition.{ String Surface String Effort Permission String String RoleTools RoleCallers Vector<CurriculumContextProvenance> String String }
+  CurriculumQuery.[ ResolveSkills.Vector<String>
+                    ResolveSources.Vector<String>
+                    ComposeStartup.CurriculumStartupSelection
+                    ComposeRole.RoleSelection ]
+  CurriculumOutcome.[ ResolvedSkills.Vector<String>
+                      ResolvedSources.Vector<CurriculumResolvedModule>
+                      StartupComposed.CurriculumStartupComposition
+                      RoleComposed.CurriculumRoleComposition
+                      Rejected.String ] ]
 
 []
 []
