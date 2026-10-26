@@ -22,10 +22,10 @@ curriculum-deploy 'Visualize.{ «/path/to/curriculum» [ ... ] «/path/to/worksp
 The first position is the Curriculum root; the runtime reads only its
 `roles.datom` there. The second is the vector of aspect repositories. Each
 source is declared as `Psyche`, `Mind` or `Field`. The runtime reads Markdown
-modules one level below the repository root, from that aspect's module kinds:
-`intent`, `spirit` and `vision` for Psyche; `inquiry`, `knowledge` and `role`
-for Mind; `compensation` and `role` for Field. A module's stable name is
-`<kind>-<filename stem>`. Root Markdown such as `README.md`, and directories
+modules one level below the repository root, from every module kind in every
+aspect repository: `compensation`, `inquiry`, `intent`, `knowledge`, `role`,
+`spirit` and `vision`. A module's kind does not decide which repository holds
+it. A module's stable name is `<kind>-<filename stem>`. Root Markdown such as `README.md`, and directories
 outside those module kinds such as `evidence`, are not skills. The third
 position is the consumer workspace.
 

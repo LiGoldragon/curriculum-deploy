@@ -12,15 +12,17 @@ pub enum Aspect {
     Field,
 }
 
-impl Aspect {
-    fn module_kinds(self) -> &'static [&'static str] {
-        match self {
-            Self::Psyche => &["intent", "spirit", "vision"],
-            Self::Mind => &["inquiry", "knowledge", "role"],
-            Self::Field => &["compensation", "role"],
-        }
-    }
-}
+/// The module kinds read from every aspect repository. A module's kind does
+/// not decide which repository holds it.
+const MODULE_KINDS: &[&str] = &[
+    "compensation",
+    "inquiry",
+    "intent",
+    "knowledge",
+    "role",
+    "spirit",
+    "vision",
+];
 
 impl fmt::Display for Aspect {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -62,7 +64,7 @@ impl DeclaredSource {
             .map_err(|error| Error::Read(self.directory.clone(), error))?;
 
         let mut skills = Vec::new();
-        for kind in self.aspect.module_kinds() {
+        for kind in MODULE_KINDS {
             let directory = self.directory.join(kind);
             let entries = match fs::read_dir(&directory) {
                 Ok(entries) => entries,
