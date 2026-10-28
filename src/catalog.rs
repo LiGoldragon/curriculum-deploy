@@ -16,7 +16,6 @@ pub enum Aspect {
 /// not decide which repository holds it.
 const MODULE_KINDS: &[&str] = &[
     "compensation",
-    "inquiry",
     "intent",
     "knowledge",
     "role",

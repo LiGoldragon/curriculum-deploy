@@ -89,6 +89,8 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
     fs::write(psyche.join("README.md"), "repository documentation").expect("root documentation");
     fs::create_dir_all(mind.join("evidence")).expect("non-module directory");
     fs::write(mind.join("evidence/report.md"), "not a module").expect("evidence report");
+    fs::create_dir_all(mind.join("inquiry")).expect("retired module directory");
+    fs::write(mind.join("inquiry/retired.md"), "not loaded").expect("retired module");
 
     let workspace = tempdir().expect("workspace");
     let output = Command::new(binary())
