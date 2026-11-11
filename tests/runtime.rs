@@ -289,7 +289,7 @@ fn skill_conditionals_render_only_for_their_target() {
     let claude = fs::read_to_string(
         workspace
             .path()
-            .join(".claude/skills/compensation-commands/SKILL.md"),
+            .join(".claude/skills/compensation:commands/SKILL.md"),
     )
     .expect("Claude skill");
     assert!(claude.contains("claude command"));
@@ -300,7 +300,7 @@ fn skill_conditionals_render_only_for_their_target() {
     let codex = fs::read_to_string(
         workspace
             .path()
-            .join(".agents/skills/compensation-commands/SKILL.md"),
+            .join(".agents/skills/compensation:commands/SKILL.md"),
     )
     .expect("Codex skill");
     assert!(codex.contains("codex command"));
@@ -311,11 +311,11 @@ fn skill_conditionals_render_only_for_their_target() {
     let opencode = fs::read_to_string(
         workspace
             .path()
-            .join(".opencode/skills/compensation-commands/SKILL.md"),
+            .join(".opencode/skills/compensation:commands/SKILL.md"),
     )
     .expect("OpenCode skill");
     assert_eq!(
-        opencode, "---\nname: compensation-commands\n---\nShared command.\nopencode command\n",
+        opencode, "---\nname: compensation:commands\n---\nShared command.\nopencode command\n",
         "OpenCode receives only its own block, under frontmatter that names the skill"
     );
 }
@@ -346,10 +346,10 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
         fs::read_to_string(
             workspace
                 .path()
-                .join(".opencode/skills/spirit-spirit/SKILL.md"),
+                .join(".opencode/skills/spirit:spirit/SKILL.md"),
         )
         .expect("OpenCode skill"),
-        "---\nname: spirit-spirit\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n"
+        "---\nname: spirit:spirit\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n"
     );
     for surface in [".agents/skills", ".claude/skills"] {
         assert_eq!(
@@ -357,7 +357,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
                 workspace
                     .path()
                     .join(surface)
-                    .join("spirit-spirit/SKILL.md"),
+                    .join("spirit:spirit/SKILL.md"),
             )
             .expect("generated skill"),
             body,
@@ -429,7 +429,7 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
         fs::read_to_string(
             workspace
                 .path()
-                .join(".agents/skills/compensation-main-flow/agents/openai.yaml"),
+                .join(".agents/skills/compensation:main-flow/agents/openai.yaml"),
         )
         .expect("explicit main-flow policy"),
         "policy:\n  allow_implicit_invocation: false\n"
@@ -437,14 +437,14 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
     assert!(
         workspace
             .path()
-            .join(".agents/skills/compensation-main-flow/SKILL.md")
+            .join(".agents/skills/compensation:main-flow/SKILL.md")
             .is_file(),
         "the explicit route has a generated source"
     );
     assert!(
         !workspace
             .path()
-            .join(".agents/skills/compensation-subflow/agents/openai.yaml")
+            .join(".agents/skills/compensation:subflow/agents/openai.yaml")
             .exists(),
         "ordinary skills retain implicit invocation"
     );

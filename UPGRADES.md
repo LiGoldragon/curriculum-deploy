@@ -1,5 +1,13 @@
 # Upgrades
 
+## Module IDs are colon IDs
+
+A module's ID is `<kind>:<filename stem>`, the form `roles.datom` names its
+modules by: `role:write-ordinary-description`, `spirit:core`. Skill
+directories are named the same way, `.claude/skills/spirit:core/SKILL.md`, and
+the role packets list and mark their modules by these IDs. Regeneration
+removes the hyphen-named skill directories as retired skills.
+
 ## Aspect repositories carry module kinds
 
 `Generate`, `Check`, and `Visualize` now take each aspect repository root and

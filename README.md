@@ -23,9 +23,10 @@ The first position is the Curriculum root; the runtime reads only its
 `roles.datom` there. The second is the vector of aspect repositories. Each
 source is declared as `Psyche`, `Mind` or `Field`. The runtime reads Markdown
 modules one level below the repository root, from every module kind in every
-aspect repository: `compensation`, `inquiry`, `intent`, `knowledge`, `role`,
-`spirit` and `vision`. A module's kind does not decide which repository holds
-it. A module's stable name is `<kind>-<filename stem>`. Root Markdown such as `README.md`, and directories
+aspect repository: `compensation`, `intent`, `knowledge`, `role`, `spirit`
+and `vision`. A module's kind does not decide which repository holds it. A
+module's ID is `<kind>:<filename stem>`, the form `roles.datom` names it by.
+Root Markdown such as `README.md`, and directories
 outside those module kinds such as `evidence`, are not skills. The third
 position is the consumer workspace.
 

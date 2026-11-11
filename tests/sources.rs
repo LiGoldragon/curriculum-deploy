@@ -109,10 +109,10 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
     );
 
     let expected: BTreeSet<String> = [
-        "compensation-operation",
-        "knowledge-design",
-        "knowledge-testing",
-        "vision-direction",
+        "compensation:operation",
+        "knowledge:design",
+        "knowledge:testing",
+        "vision:direction",
     ]
     .into_iter()
     .map(String::from)
@@ -129,7 +129,7 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
         fs::read_to_string(
             workspace
                 .path()
-                .join(".claude/skills/vision-direction/SKILL.md"),
+                .join(".claude/skills/vision:direction/SKILL.md"),
         )
         .expect("psyche skill"),
         "Psyche skill.\n"
@@ -138,7 +138,7 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
         fs::read_to_string(
             workspace
                 .path()
-                .join(".claude/skills/compensation-operation/SKILL.md"),
+                .join(".claude/skills/compensation:operation/SKILL.md"),
         )
         .expect("field skill"),
         "---\ndescription: Field\ndisable-model-invocation: true\n---\n\nField skill.\n"
@@ -146,7 +146,7 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
     assert!(
         workspace
             .path()
-            .join(".agents/skills/compensation-operation/agents/openai.yaml")
+            .join(".agents/skills/compensation:operation/agents/openai.yaml")
             .is_file()
     );
 
@@ -198,7 +198,7 @@ fn a_skill_defined_by_two_sources_is_refused_and_nothing_is_written() {
     assert_eq!(
         fault.trim(),
         format!(
-            "skill role-shared is defined by two sources: Mind {} and Field {}",
+            "skill role:shared is defined by two sources: Mind {} and Field {}",
             mind.join("role/shared.md").display(),
             field.join("role/shared.md").display()
         )
@@ -249,4 +249,76 @@ fn an_undeclared_aspect_is_refused() {
         .output()
         .expect("runtime starts");
     assert!(!output.status.success(), "{output:?}");
+}
+
+#[test]
+fn roles_name_their_modules_by_colon_ids() {
+    let curriculum = tempdir().expect("curriculum root");
+    fs::write(
+        curriculum.path().join("roles.datom"),
+        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted role:relay-description [ spirit:core role:relay ] Explicit.[ Read Bash ] Only.[ { Psyche core Tertiary } ] } ] }",
+    )
+    .expect("role data");
+    let repositories = tempdir().expect("source repositories");
+    let psyche = source_with(
+        repositories.path(),
+        "psyche-skills",
+        "spirit",
+        &[("core", "---\ndescription: Core\n---\n\nCORE_BODY\n")],
+    );
+    let field = source_with(
+        repositories.path(),
+        "field-skills",
+        "role",
+        &[
+            ("relay-description", "Relay the comments.\n"),
+            ("relay", "RELAY_BODY\n"),
+        ],
+    );
+
+    let workspace = tempdir().expect("workspace");
+    let sources = [("Psyche", psyche.as_path()), ("Field", field.as_path())];
+    let output = Command::new(binary())
+        .arg(deployment_request(
+            "Generate",
+            curriculum.path(),
+            &sources,
+            workspace.path(),
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(
+        String::from_utf8(output.stdout).expect("receipt").trim(),
+        "Generated.{ 3 1 }"
+    );
+    assert!(
+        workspace
+            .path()
+            .join(".claude/skills/spirit:core/SKILL.md")
+            .is_file()
+    );
+    let agent = fs::read_to_string(workspace.path().join(".claude/agents/relay.md"))
+        .expect("Claude role packet");
+    assert!(agent.starts_with(
+        "---\nname: relay\ndescription: \"Relay the comments.\"\nmodel: \"sonnet\"\neffort: high\ntools: [Read, Bash]\n---\n"
+    ));
+    assert!(agent.contains("Module IDs: spirit:core, role:relay\n"));
+    assert!(
+        agent.contains("<!-- module: spirit:core -->\nCORE_BODY\n<!-- end-module: spirit:core -->")
+    );
+    assert!(
+        agent.contains("<!-- module: role:relay -->\nRELAY_BODY\n<!-- end-module: role:relay -->")
+    );
+
+    let output = Command::new(binary())
+        .arg(deployment_request(
+            "Check",
+            curriculum.path(),
+            &sources,
+            workspace.path(),
+        ))
+        .output()
+        .expect("runtime checks");
+    assert!(output.status.success(), "{output:?}");
 }

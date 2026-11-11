@@ -13,7 +13,8 @@ pub enum Aspect {
 }
 
 /// The module kinds read from every aspect repository. A module's kind does
-/// not decide which repository holds it.
+/// not decide which repository holds it. A module's ID is `<kind>:<stem>`,
+/// the form role data names it by.
 const MODULE_KINDS: &[&str] = &[
     "compensation",
     "intent",
@@ -85,7 +86,7 @@ impl DeclaredSource {
                 let body =
                     fs::read_to_string(&path).map_err(|error| Error::Read(path.clone(), error))?;
                 skills.push(Skill {
-                    name: format!("{kind}-{name}"),
+                    name: format!("{kind}:{name}"),
                     aspect: self.aspect,
                     source: path,
                     body,
