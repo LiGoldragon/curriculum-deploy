@@ -79,21 +79,22 @@ dependencies = [
 
 [[package]]
 name = "curriculum-deploy"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "datom-codec",
  "ethos-zero",
  "protos",
  "rkyv",
  "sha2",
+ "signal-curriculum-nexus",
  "tempfile",
  "thiserror",
 ]
 
 [[package]]
 name = "datom-codec"
-version = "0.32.2"
-source = "git+https://github.com/LiGoldragon/datom-codec?rev=4dff16b4f7412febc3b71aac8b49680cd20988cb#4dff16b4f7412febc3b71aac8b49680cd20988cb"
+version = "0.33.1"
+source = "git+https://github.com/LiGoldragon/datom-codec?rev=09a0526#09a0526949b043f921b6d3ce115b7f455291f2e2"
 dependencies = [
  "datom-codec-derive",
  "protos",
@@ -102,8 +103,8 @@ dependencies = [
 
 [[package]]
 name = "datom-codec-derive"
-version = "0.32.0"
-source = "git+https://github.com/LiGoldragon/datom-codec?rev=4dff16b4f7412febc3b71aac8b49680cd20988cb#4dff16b4f7412febc3b71aac8b49680cd20988cb"
+version = "0.32.3"
+source = "git+https://github.com/LiGoldragon/datom-codec?rev=09a0526#09a0526949b043f921b6d3ce115b7f455291f2e2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -138,8 +139,8 @@ dependencies = [
 
 [[package]]
 name = "ethos-zero"
-version = "16.0.0"
-source = "git+https://github.com/LiGoldragon/ethos-zero?rev=c2653dd82adbdb1f1f2f654405c6620e0d06fd58#c2653dd82adbdb1f1f2f654405c6620e0d06fd58"
+version = "27.0.0"
+source = "git+https://github.com/LiGoldragon/ethos-zero?rev=8c95310#8c95310c4c372cfe115cdebc3e85021b98cf2974"
 dependencies = [
  "datom-codec",
  "prettyplease",
@@ -293,8 +294,8 @@ dependencies = [
 
 [[package]]
 name = "protos"
-version = "0.32.2"
-source = "git+https://github.com/LiGoldragon/protos?rev=15b41da8f2579e73ead59bc0c2b97529b8ac32d3#15b41da8f2579e73ead59bc0c2b97529b8ac32d3"
+version = "0.33.0"
+source = "git+https://github.com/LiGoldragon/protos?rev=c93b598#c93b598025984f8a73e70aa18b8e8a6fdfdfdfd8"
 dependencies = [
  "rkyv",
 ]
@@ -410,6 +411,17 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "signal-curriculum-nexus"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/signal-curriculum-nexus?rev=3e8b5b9#3e8b5b9a8cb7523ab205a74c9bbe828dc9f31cdc"
+dependencies = [
+ "datom-codec",
+ "ethos-zero",
+ "protos",
+ "rkyv",
 ]
 
 [[package]]

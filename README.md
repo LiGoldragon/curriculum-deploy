@@ -7,7 +7,7 @@ define the skill catalog; the runtime does not duplicate it as a fixed count.
 
 ## Version
 
-0.9.0
+0.10.0
 
 ## Usage
 
@@ -21,11 +21,13 @@ curriculum-deploy 'Visualize.{ «/path/to/curriculum» [ ... ] «/path/to/worksp
 
 The first position is the Curriculum root; the runtime reads only its
 `roles.datom` there. The second is the vector of aspect repositories. Each
-source is declared as `Psyche`, `Mind` or `Field`. The runtime reads Markdown
-modules one level below the repository root, from every module kind in every
-aspect repository: `compensation`, `intent`, `knowledge`, `role`, `spirit`
-and `vision`. A module's kind does not decide which repository holds it. A
-module's ID is `<kind>:<filename stem>`, the form `roles.datom` names it by.
+source is declared as `Psyche`, `Mind` or `Field`. The runtime reads every
+version of every module, `<kind>/<subject>/<version>.md`, from every module
+kind in every aspect repository: `compensation`, `intent`, `knowledge`,
+`role`, `spirit` and `vision`. A version is a canonical decimal number, `0`
+or one with no leading zero. A module's kind does not decide which repository
+holds it. A module's ID is `<kind>:<subject>:<version>`, the form
+`roles.datom` names it by, and a file beside the subjects is not a module.
 Root Markdown such as `README.md`, and directories
 outside those module kinds such as `evidence`, are not skills. The third
 position is the consumer workspace.
@@ -42,14 +44,17 @@ Output is printed as datom on stdout. Faults are printed as datom on stderr.
 
 | Crate | Version | Rev |
 |---|---|---|
-| protos | 0.32.2 | 15b41da8f257 |
-| datom-codec | 0.32.2 | 4dff16b4f741 |
-| ethos-zero | 16.0.0 | c2653dd82adb |
+| protos | 0.33.0 | c93b598 |
+| datom-codec | 0.33.1 | 09a0526 |
+| signal-curriculum-nexus | 0.1.0 | 3e8b5b9 |
+| ethos-zero | 27.0.0 | 8c95310 |
 
 ## Ethos declaration
 
 The request, output, and role-packet types are declared in
-`curriculum-deploy.ethos` as an ethos Library. The generated Rust module
+`curriculum-deploy.ethos` as an ethos Library, over the Curriculum Nexus's
+wire types, which it imports from `signal-curriculum-nexus`; `ProjectRoles`
+asks and reads that contract's own `Input` and `Output`. The generated Rust module
 `src/generated.rs` is committed and verified fresh by a test that reads
 the ethos file through the ethos-zero library and compares the emitted
 output.

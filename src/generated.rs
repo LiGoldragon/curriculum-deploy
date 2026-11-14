@@ -1,4 +1,9 @@
-#![allow(dead_code, non_camel_case_types, non_snake_case)]
+#![allow(
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    clippy::type_complexity
+)]
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
@@ -18,15 +23,8 @@ pub struct Configuration {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct RoleSelection {
-    pub string: String,
-    pub surface: Surface,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct RoleProjection {
-    pub role_selection: RoleSelection,
+    pub role_selection: signal_curriculum_nexus::RoleSelection,
     pub string: String,
 }
 #[rustfmt::skip]
@@ -112,7 +110,7 @@ pub struct RoleSourceProvenance {
 pub struct RoleOutputProvenance {
     pub first_string: String,
     pub second_string: String,
-    pub surface: Surface,
+    pub surface: signal_curriculum_nexus::Surface,
     pub third_string: String,
     pub fourth_string: String,
     pub fifth_string: String,
@@ -133,62 +131,16 @@ pub enum GeneratedRoleProvenanceDocument {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Permission {
-    Restricted,
-    Unrestricted,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Effort {
-    Low,
-    Medium,
-    High,
-    Xhigh,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Surface {
-    ClaudeAgent,
-    CodexAgent,
-    PiAgent,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct CallerMetaflow {
-    pub first_string: String,
-    pub second_string: String,
-    pub third_string: String,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum RoleTools {
-    Inherit,
-    Explicit(std::vec::Vec<String>),
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum RoleCallers {
-    Any,
-    Only(std::vec::Vec<CallerMetaflow>),
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct RoleDefinition {
     pub first_string: String,
-    pub surface: Surface,
+    pub surface: signal_curriculum_nexus::Surface,
     pub second_string: String,
-    pub effort: Effort,
-    pub permission: Permission,
+    pub effort: signal_curriculum_nexus::Effort,
+    pub permission: signal_curriculum_nexus::Permission,
     pub third_string: String,
     pub string_vector: std::vec::Vec<String>,
-    pub role_tools: RoleTools,
-    pub role_callers: RoleCallers,
+    pub role_tools: signal_curriculum_nexus::RoleTools,
+    pub role_callers: signal_curriculum_nexus::RoleCallers,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -201,106 +153,4 @@ pub struct Roles {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum RolesDocument {
     Roles(Roles),
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum CurriculumTarget {
-    Claude,
-    Codex,
-    Pi,
-    OpenCode,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum CurriculumStartupPlacement {
-    System,
-    User,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct CurriculumContextProvenance {
-    pub first_string: String,
-    pub second_string: String,
-    pub third_string: String,
-    pub fourth_string: String,
-    pub fifth_string: String,
-    pub sixth_string: String,
-    pub seventh_string: String,
-    pub curriculum_startup_placement: CurriculumStartupPlacement,
-    pub integer: i64,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct CurriculumStartupSelection {
-    pub caller_metaflow: CallerMetaflow,
-    pub curriculum_target: CurriculumTarget,
-    pub first_string_vector: std::vec::Vec<String>,
-    pub second_string_vector: std::vec::Vec<String>,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct CurriculumStartupComposition {
-    pub first_string: String,
-    pub second_string: String,
-    pub third_string: String,
-    pub fourth_string: String,
-    pub curriculum_context_provenance_vector: std::vec::Vec<CurriculumContextProvenance>,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct CurriculumResolvedModule {
-    pub first_string: String,
-    pub second_string: String,
-    pub third_string: String,
-    pub fourth_string: String,
-    pub fifth_string: String,
-    pub sixth_string: String,
-    pub seventh_string: String,
-    pub eighth_string: String,
-    pub ninth_string: String,
-    pub tenth_string: String,
-    pub position_11_string: String,
-    pub string_vector: std::vec::Vec<String>,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct CurriculumRoleComposition {
-    pub first_string: String,
-    pub surface: Surface,
-    pub second_string: String,
-    pub effort: Effort,
-    pub permission: Permission,
-    pub third_string: String,
-    pub fourth_string: String,
-    pub role_tools: RoleTools,
-    pub role_callers: RoleCallers,
-    pub curriculum_context_provenance_vector: std::vec::Vec<CurriculumContextProvenance>,
-    pub fifth_string: String,
-    pub sixth_string: String,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum CurriculumQuery {
-    ResolveSkills(std::vec::Vec<String>),
-    ResolveSources(std::vec::Vec<String>),
-    ComposeStartup(CurriculumStartupSelection),
-    ComposeRole(RoleSelection),
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum CurriculumOutcome {
-    ResolvedSkills(std::vec::Vec<String>),
-    ResolvedSources(std::vec::Vec<CurriculumResolvedModule>),
-    StartupComposed(CurriculumStartupComposition),
-    RoleComposed(CurriculumRoleComposition),
-    Rejected(String),
 }

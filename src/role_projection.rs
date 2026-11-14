@@ -7,16 +7,19 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::generated as source;
 use datom_codec::{Actualizing, Budget, Datomizable, Potential};
 use protos::{Protosizable, ReaderBudget, Textualizable};
 use sha2::{Digest, Sha256};
+use signal_curriculum_nexus::{
+    Effort, Input, Output as CurriculumOutput, Permission, RoleComposition, RoleSelection,
+    RoleTools, Surface,
+};
 
 use crate::{
     generated::{
         GeneratedRoleOutputDocument, GeneratedRoleOutputs, GeneratedRoleProvenance,
         GeneratedRoleProvenanceDocument, RoleOutputProvenance, RoleProjectionConfiguration,
-        RoleSourceProvenance, RoleTools, Surface,
+        RoleSourceProvenance,
     },
     runtime::Error,
 };
@@ -46,12 +49,8 @@ pub(crate) fn project(configuration: RoleProjectionConfiguration) -> Result<usiz
                 relative.display()
             )));
         }
-        let selection = source::RoleSelection {
-            string: projection.role_selection.string.clone(),
-            surface: projection.role_selection.surface.clone(),
-        };
-        let composition = compose_role(&source_socket, selection)?;
-        if composition.first_string != projection.role_selection.string
+        let composition = compose_role(&source_socket, &projection.role_selection)?;
+        if composition.role_name != projection.role_selection.role_name
             || composition.surface != projection.role_selection.surface
         {
             return Err(Error::RoleMismatch);
@@ -60,22 +59,22 @@ pub(crate) fn project(configuration: RoleProjectionConfiguration) -> Result<usiz
         let output_sha = sha256(text.as_bytes());
         let provenance = RoleOutputProvenance {
             first_string: relative.to_string_lossy().into_owned(),
-            second_string: composition.first_string.clone(),
+            second_string: composition.role_name.0.clone(),
             surface: projection.role_selection.surface,
             third_string: output_sha,
-            fourth_string: composition.fifth_string.clone(),
-            fifth_string: composition.sixth_string.clone(),
+            fourth_string: composition.description_payload_sha256.0.clone(),
+            fifth_string: composition.context_payload_sha256.0.clone(),
             role_source_provenance_vector: composition
-                .curriculum_context_provenance_vector
+                .context_provenance_vector
                 .iter()
                 .map(|item| RoleSourceProvenance {
-                    first_string: item.first_string.clone(),
-                    second_string: item.second_string.clone(),
-                    third_string: item.third_string.clone(),
-                    fourth_string: item.fourth_string.clone(),
-                    fifth_string: item.fifth_string.clone(),
-                    sixth_string: item.sixth_string.clone(),
-                    seventh_string: item.seventh_string.clone(),
+                    first_string: item.module_identity.0.clone(),
+                    second_string: item.repository_name.0.clone(),
+                    third_string: item.source_revision.0.clone(),
+                    fourth_string: item.source_relative_path.0.clone(),
+                    fifth_string: item.source_sha256.0.clone(),
+                    sixth_string: item.body_sha256.0.clone(),
+                    seventh_string: item.rendered_sha256.0.clone(),
                 })
                 .collect(),
         };
@@ -133,12 +132,9 @@ pub(crate) fn project(configuration: RoleProjectionConfiguration) -> Result<usiz
     Ok(outputs.len())
 }
 
-fn compose_role(
-    socket: &Path,
-    selection: source::RoleSelection,
-) -> Result<source::CurriculumRoleComposition, Error> {
-    let query = source::CurriculumQuery::ComposeRole(selection);
-    let request = rkyv::to_bytes::<rkyv::rancor::Error>(&query)
+fn compose_role(socket: &Path, selection: &RoleSelection) -> Result<RoleComposition, Error> {
+    let input = Input::ComposeRole(selection.clone());
+    let request = rkyv::to_bytes::<rkyv::rancor::Error>(&input)
         .map_err(|error| Error::RoleSource(socket.to_path_buf(), error.to_string()))?;
     let mut stream = UnixStream::connect(socket)
         .map_err(|error| Error::RoleSource(socket.to_path_buf(), error.to_string()))?;
@@ -146,21 +142,21 @@ fn compose_role(
         .map_err(|error| Error::RoleSource(socket.to_path_buf(), error.to_string()))?;
     let response = read_frame(&mut stream)
         .map_err(|error| Error::RoleSource(socket.to_path_buf(), error.to_string()))?;
-    match rkyv::from_bytes::<source::CurriculumOutcome, rkyv::rancor::Error>(&response)
+    match rkyv::from_bytes::<CurriculumOutput, rkyv::rancor::Error>(&response)
         .map_err(|error| Error::RoleSource(socket.to_path_buf(), error.to_string()))?
     {
-        source::CurriculumOutcome::RoleComposed(composition) => Ok(composition),
-        source::CurriculumOutcome::Rejected(reason) => Err(Error::RoleRejected(reason)),
+        CurriculumOutput::RoleComposed(composition) => Ok(composition),
+        CurriculumOutput::Rejected(reason) => Err(Error::RoleRejected(reason)),
         _ => Err(Error::RoleMismatch),
     }
 }
 
-fn render(role: &source::CurriculumRoleComposition) -> String {
+fn render(role: &RoleComposition) -> String {
     let effort = match role.effort {
-        crate::generated::Effort::Low => "low",
-        crate::generated::Effort::Medium => "medium",
-        crate::generated::Effort::High => "high",
-        crate::generated::Effort::Xhigh => "xhigh",
+        Effort::Low => "low",
+        Effort::Medium => "medium",
+        Effort::High => "high",
+        Effort::Xhigh => "xhigh",
     };
     let tools = match &role.role_tools {
         RoleTools::Inherit => None,
@@ -173,30 +169,29 @@ fn render(role: &source::CurriculumRoleComposition) -> String {
                 .unwrap_or_default();
             format!(
                 "---\nname: {}\ndescription: {:?}\nmodel: {:?}\neffort: {effort}\n{tools}---\n\n{}",
-                role.first_string, role.third_string, role.second_string, role.fourth_string
+                role.role_name.0, role.description_text.0, role.model_id.0, role.context_text.0
             )
         }
         Surface::CodexAgent => format!(
             "name = {:?}\ndescription = {:?}\nmodel = {:?}\nmodel_reasoning_effort = {effort:?}\ndeveloper_instructions = {:?}\n",
-            role.first_string,
-            role.third_string,
-            role.second_string,
-            role.fourth_string.trim_end()
+            role.role_name.0,
+            role.description_text.0,
+            role.model_id.0,
+            role.context_text.0.trim_end()
         ),
         Surface::PiAgent => {
-            let restriction = if matches!(role.permission, crate::generated::Permission::Restricted)
-            {
+            let restriction = if matches!(role.permission, Permission::Restricted) {
                 "disallowed_tools: 'edit, write'\n"
             } else {
                 ""
             };
             format!(
                 "---\nname: {}\ndescription: {:?}\nmodel: 'openai-codex/{}'\nthinking: {effort}\nprojectRoleIdentity: {}\nprojectRoleDispatchKind: leaf\n{restriction}---\n\n{}",
-                role.first_string,
-                role.third_string,
-                role.second_string,
-                role.first_string,
-                role.fourth_string
+                role.role_name.0,
+                role.description_text.0,
+                role.model_id.0,
+                role.role_name.0,
+                role.context_text.0
             )
         }
     }
@@ -267,9 +262,7 @@ fn read_frame(stream: &mut UnixStream) -> std::io::Result<Vec<u8>> {
 fn budget() -> Budget {
     Budget {
         remaining: 1_048_576,
-        reader: ReaderBudget {
-            remaining: 1_048_576,
-        },
+        reader: ReaderBudget::try_from(1_048_576).expect("a constant reader budget"),
         depth: 0,
         maximum_depth: 1_024,
     }
@@ -287,6 +280,11 @@ fn sha256(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
     use crate::generated::RoleProjection;
+    use signal_curriculum_nexus::{
+        BodySha256, ContextPayloadSha256, ContextProvenance, ContextText, DescriptionPayloadSha256,
+        DescriptionText, ModelId, ModuleIdentity, RenderedSha256, RepositoryName, RoleCallers,
+        RoleName, SourceRelativePath, SourceRevision, SourceSha256, StartupPlacement,
+    };
     use std::{os::unix::net::UnixListener, thread};
     use tempfile::TempDir;
 
@@ -297,46 +295,45 @@ mod tests {
         assert!(safe_relative(Path::new("/outside")).is_err());
     }
 
-    fn source(socket: PathBuf, outcomes: Vec<source::CurriculumOutcome>) -> thread::JoinHandle<()> {
+    fn source(socket: PathBuf, outputs: Vec<CurriculumOutput>) -> thread::JoinHandle<()> {
         let listener = UnixListener::bind(socket).expect("mock Curriculum socket");
         thread::spawn(move || {
-            for outcome in outcomes {
+            for output in outputs {
                 let (mut stream, _) = listener.accept().expect("projection connects");
-                let request = read_frame(&mut stream).expect("query frame");
-                let _: source::CurriculumQuery =
-                    rkyv::from_bytes::<_, rkyv::rancor::Error>(&request)
-                        .expect("typed ComposeRole query");
+                let request = read_frame(&mut stream).expect("input frame");
+                let _: Input = rkyv::from_bytes::<_, rkyv::rancor::Error>(&request)
+                    .expect("typed ComposeRole input");
                 let response =
-                    rkyv::to_bytes::<rkyv::rancor::Error>(&outcome).expect("typed outcome");
+                    rkyv::to_bytes::<rkyv::rancor::Error>(&output).expect("typed output");
                 write_frame(&mut stream, &response).expect("outcome frame");
             }
         })
     }
 
-    fn composition(name: &str, surface: Surface) -> source::CurriculumOutcome {
-        source::CurriculumOutcome::RoleComposed(source::CurriculumRoleComposition {
-            first_string: name.into(),
+    fn composition(name: &str, surface: Surface) -> CurriculumOutput {
+        CurriculumOutput::RoleComposed(RoleComposition {
+            role_name: RoleName(name.into()),
             surface,
-            second_string: "model".into(),
-            effort: crate::generated::Effort::Medium,
-            permission: crate::generated::Permission::Restricted,
-            third_string: "reads a bounded target".into(),
-            fourth_string: "context body\n".into(),
+            model_id: ModelId("model".into()),
+            effort: Effort::Medium,
+            permission: Permission::Restricted,
+            description_text: DescriptionText("reads a bounded target".into()),
+            context_text: ContextText("context body\n".into()),
             role_tools: RoleTools::Inherit,
-            role_callers: crate::generated::RoleCallers::Any,
-            curriculum_context_provenance_vector: vec![source::CurriculumContextProvenance {
-                first_string: "role-module".into(),
-                second_string: "psyche-skills".into(),
-                third_string: "revision".into(),
-                fourth_string: "skills/role-module.md".into(),
-                fifth_string: "source".into(),
-                sixth_string: "body".into(),
-                seventh_string: "rendered".into(),
-                curriculum_startup_placement: source::CurriculumStartupPlacement::System,
+            role_callers: RoleCallers::Any,
+            context_provenance_vector: vec![ContextProvenance {
+                module_identity: ModuleIdentity("role-module".into()),
+                repository_name: RepositoryName("psyche-skills".into()),
+                source_revision: SourceRevision("revision".into()),
+                source_relative_path: SourceRelativePath("skills/role-module.md".into()),
+                source_sha256: SourceSha256("source".into()),
+                body_sha256: BodySha256("body".into()),
+                rendered_sha256: RenderedSha256("rendered".into()),
+                startup_placement: StartupPlacement::System,
                 integer: 0,
             }],
-            fifth_string: "description".into(),
-            sixth_string: "context".into(),
+            description_payload_sha256: DescriptionPayloadSha256("description".into()),
+            context_payload_sha256: ContextPayloadSha256("context".into()),
         })
     }
 
@@ -350,8 +347,8 @@ mod tests {
             first_string: socket.to_string_lossy().into_owned(),
             second_string: workspace.to_string_lossy().into_owned(),
             role_projection_vector: vec![RoleProjection {
-                role_selection: crate::generated::RoleSelection {
-                    string: name.into(),
+                role_selection: RoleSelection {
+                    role_name: RoleName(name.into()),
                     surface: Surface::PiAgent,
                 },
                 string: destination.into(),
@@ -418,9 +415,7 @@ mod tests {
         let socket = root.path().join("curriculum.sock");
         let server = source(
             socket.clone(),
-            vec![source::CurriculumOutcome::Rejected(
-                "unknown role/surface".into(),
-            )],
+            vec![CurriculumOutput::Rejected("unknown role/surface".into())],
         );
         let workspace = root.path().join("workspace");
         let result = project(configuration(

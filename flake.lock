@@ -18,47 +18,17 @@
     "curriculum": {
       "flake": false,
       "locked": {
-        "lastModified": 1791059769,
-        "narHash": "sha256-iBXZ60ZnL0vnowPO+az/o+5nJK+/jampsRivBA3UxlE=",
+        "lastModified": 1794629565,
+        "narHash": "sha256-jX9NZsbeJTIaVLh2HXSL5ufdaNgr47xmU4QlQ3obtSw=",
         "owner": "LiGoldragon",
         "repo": "Curriculum",
-        "rev": "487b69b337270adf8fde50ec10ec237d858012d5",
+        "rev": "e3ffb318e4575a67323a52214711856d9a206ed0",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
         "repo": "Curriculum",
-        "rev": "487b69b337270adf8fde50ec10ec237d858012d5",
-        "type": "github"
-      }
-    },
-    "curriculum-deploy-baseline": {
-      "inputs": {
-        "curriculum": [
-          "curriculum"
-        ],
-        "flake-utils": [
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "rust-build": [
-          "rust-build"
-        ]
-      },
-      "locked": {
-        "lastModified": 1791009031,
-        "narHash": "sha256-93v4onxBpO8j6kIJjVCMxHoIHlGF6W0MxtMhNZJCmrw=",
-        "owner": "LiGoldragon",
-        "repo": "curriculum-deploy",
-        "rev": "a79cf02d3cba3a991d12a0b2a37f5e8c93ea6153",
-        "type": "github"
-      },
-      "original": {
-        "owner": "LiGoldragon",
-        "repo": "curriculum-deploy",
-        "rev": "a79cf02d3cba3a991d12a0b2a37f5e8c93ea6153",
+        "rev": "e3ffb318e4575a67323a52214711856d9a206ed0",
         "type": "github"
       }
     },
@@ -81,6 +51,23 @@
       "original": {
         "owner": "nix-community",
         "repo": "fenix",
+        "type": "github"
+      }
+    },
+    "field-belief": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794619543,
+        "narHash": "sha256-FP6M4N1Hn+ArZfsXvohBeIqTq3kqwygsI3ewDrJ73dE=",
+        "owner": "LiGoldragon",
+        "repo": "field-belief",
+        "rev": "a515b8017d5be6de0bb1130fcf979bb9b2e21620",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "field-belief",
+        "rev": "a515b8017d5be6de0bb1130fcf979bb9b2e21620",
         "type": "github"
       }
     },
@@ -120,6 +107,23 @@
         "type": "github"
       }
     },
+    "mind-belief": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794626333,
+        "narHash": "sha256-qWbcOotTWesyturKit2wkzNXTRzcL/4GhxHw6mlFo9E=",
+        "owner": "LiGoldragon",
+        "repo": "mind-belief",
+        "rev": "573223da3c0cac29eb40091757802f54b08d27cc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "mind-belief",
+        "rev": "573223da3c0cac29eb40091757802f54b08d27cc",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1786556369,
@@ -136,12 +140,31 @@
         "type": "github"
       }
     },
+    "psyche-belief": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794627831,
+        "narHash": "sha256-F6N78w6HD/ZrSVyRU+bFQTgtS5KnjNjQe8sx84z+O0E=",
+        "owner": "LiGoldragon",
+        "repo": "psyche-belief",
+        "rev": "fdd8775ac006b1f638897b5f120b1e1fb3a96410",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "psyche-belief",
+        "rev": "fdd8775ac006b1f638897b5f120b1e1fb3a96410",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "curriculum": "curriculum",
-        "curriculum-deploy-baseline": "curriculum-deploy-baseline",
+        "field-belief": "field-belief",
         "flake-utils": "flake-utils",
+        "mind-belief": "mind-belief",
         "nixpkgs": "nixpkgs",
+        "psyche-belief": "psyche-belief",
         "rust-build": "rust-build"
       }
     },

@@ -6,7 +6,8 @@ Text -> Protos -> Datom -> generated Rust values.
 
 Realization (inbound): `Potential<T>::actualize` with an explicit parse budget.
 Textualization (outbound): `datomize` -> `protosize` -> `textualize`.
-Skill deployment reads the authored Markdown of every declared skill source,
+Skill deployment reads every module version, `<kind>/<subject>/<version>.md`,
+of every declared skill source,
 each declared with its aspect (Psyche, Mind or Field), unions them into one
 catalog ordered by name, refuses a skill defined by two sources, and renders
 the catalog into each supported skill surface. The Curriculum checkout gives
@@ -29,7 +30,8 @@ the role data.
 
 `ProjectRoles` takes the Curriculum Nexus socket, a workspace root, and an
 explicit vector of role/surface selections paired with relative destinations.
-It composes only those selections through the typed `ComposeRole` wire; the
+It composes only those selections through the typed `ComposeRole` input of
+signal-curriculum-nexus, the Curriculum Nexus's own contract; the
 Curriculum role inventory never implies installation. Each output is written
 atomically and read back. `skills/generated-role-outputs.datom` records the
 paths this adapter owns, while `skills/generated-role-provenance.datom` records

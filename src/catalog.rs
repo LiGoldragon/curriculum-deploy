@@ -13,7 +13,8 @@ pub enum Aspect {
 }
 
 /// The module kinds read from every aspect repository. A module's kind does
-/// not decide which repository holds it. A module's ID is `<kind>:<stem>`,
+/// not decide which repository holds it. A module's text is
+/// `<kind>/<subject>/<version>.md` and its ID `<kind>:<subject>:<version>`,
 /// the form role data names it by.
 const MODULE_KINDS: &[&str] = &[
     "compensation",
@@ -66,34 +67,68 @@ impl DeclaredSource {
         let mut skills = Vec::new();
         for kind in MODULE_KINDS {
             let directory = self.directory.join(kind);
-            let entries = match fs::read_dir(&directory) {
+            let subjects = match fs::read_dir(&directory) {
                 Ok(entries) => entries,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(error) => return Err(Error::Read(directory, error)),
             };
-            for entry in entries {
-                let path = entry
+            for subject in subjects {
+                let subject = subject
                     .map_err(|error| Error::Read(directory.clone(), error))?
                     .path();
-                if !path.extension().is_some_and(|value| value == "md") {
+                // A module is a version file in its subject's directory; a
+                // file beside the subjects is not a module.
+                if !subject.is_dir() {
                     continue;
                 }
-                let name = path
-                    .file_stem()
-                    .expect("markdown stem")
+                let subject_name = subject
+                    .file_name()
+                    .expect("subject directory name")
                     .to_string_lossy()
                     .into_owned();
-                let body =
-                    fs::read_to_string(&path).map_err(|error| Error::Read(path.clone(), error))?;
-                skills.push(Skill {
-                    name: format!("{kind}:{name}"),
-                    aspect: self.aspect,
-                    source: path,
-                    body,
-                });
+                let versions =
+                    fs::read_dir(&subject).map_err(|error| Error::Read(subject.clone(), error))?;
+                for version in versions {
+                    let path = version
+                        .map_err(|error| Error::Read(subject.clone(), error))?
+                        .path();
+                    if !path.extension().is_some_and(|value| value == "md") {
+                        continue;
+                    }
+                    let version = path
+                        .file_stem()
+                        .expect("markdown stem")
+                        .to_string_lossy()
+                        .into_owned();
+                    if !version.is_canonical_version() {
+                        continue;
+                    }
+                    let body = fs::read_to_string(&path)
+                        .map_err(|error| Error::Read(path.clone(), error))?;
+                    skills.push(Skill {
+                        name: format!("{kind}:{subject_name}:{version}"),
+                        aspect: self.aspect,
+                        source: path,
+                        body,
+                    });
+                }
             }
         }
         Ok(skills)
+    }
+}
+
+/// A module version is a canonical nonnegative decimal number: zero is `0`,
+/// and no other version opens with `0`.
+trait NamesVersion {
+    fn is_canonical_version(&self) -> bool;
+}
+
+impl NamesVersion for str {
+    fn is_canonical_version(&self) -> bool {
+        !self.is_empty()
+            && (self == "0" || !self.starts_with('0'))
+            && self.bytes().all(|byte| byte.is_ascii_digit())
     }
 }
 

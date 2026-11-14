@@ -28,12 +28,14 @@ fn curriculum_with_empty_roles(root: &Path) {
     fs::write(root.join("roles.datom"), "Roles.{ [] }").expect("empty role data");
 }
 
+/// An aspect repository holding each skill as version 0 of its subject:
+/// `<kind>/<subject>/0.md`.
 fn source_with(root: &Path, name: &str, kind: &str, skills: &[(&str, &str)]) -> std::path::PathBuf {
     let directory = root.join(name);
-    let kind_directory = directory.join(kind);
-    fs::create_dir_all(&kind_directory).expect("source directory");
     for (skill, body) in skills {
-        fs::write(kind_directory.join(format!("{skill}.md")), body).expect("skill source");
+        let subject = directory.join(kind).join(skill);
+        fs::create_dir_all(&subject).expect("subject directory");
+        fs::write(subject.join("0.md"), body).expect("skill source");
     }
     directory
 }
@@ -109,10 +111,10 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
     );
 
     let expected: BTreeSet<String> = [
-        "compensation:operation",
-        "knowledge:design",
-        "knowledge:testing",
-        "vision:direction",
+        "compensation:operation:0",
+        "knowledge:design:0",
+        "knowledge:testing:0",
+        "vision:direction:0",
     ]
     .into_iter()
     .map(String::from)
@@ -129,7 +131,7 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
         fs::read_to_string(
             workspace
                 .path()
-                .join(".claude/skills/vision:direction/SKILL.md"),
+                .join(".claude/skills/vision:direction:0/SKILL.md"),
         )
         .expect("psyche skill"),
         "Psyche skill.\n"
@@ -138,7 +140,7 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
         fs::read_to_string(
             workspace
                 .path()
-                .join(".claude/skills/compensation:operation/SKILL.md"),
+                .join(".claude/skills/compensation:operation:0/SKILL.md"),
         )
         .expect("field skill"),
         "---\ndescription: Field\ndisable-model-invocation: true\n---\n\nField skill.\n"
@@ -146,7 +148,7 @@ fn skills_from_three_aspect_sources_deploy_as_one_catalog() {
     assert!(
         workspace
             .path()
-            .join(".agents/skills/compensation:operation/agents/openai.yaml")
+            .join(".agents/skills/compensation:operation:0/agents/openai.yaml")
             .is_file()
     );
 
@@ -198,9 +200,9 @@ fn a_skill_defined_by_two_sources_is_refused_and_nothing_is_written() {
     assert_eq!(
         fault.trim(),
         format!(
-            "skill role:shared is defined by two sources: Mind {} and Field {}",
-            mind.join("role/shared.md").display(),
-            field.join("role/shared.md").display()
+            "skill role:shared:0 is defined by two sources: Mind {} and Field {}",
+            mind.join("role/shared/0.md").display(),
+            field.join("role/shared/0.md").display()
         )
     );
     assert!(output.stdout.is_empty());
@@ -256,7 +258,7 @@ fn roles_name_their_modules_by_colon_ids() {
     let curriculum = tempdir().expect("curriculum root");
     fs::write(
         curriculum.path().join("roles.datom"),
-        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted role:relay-description [ spirit:core role:relay ] Explicit.[ Read Bash ] Only.[ { Psyche core Tertiary } ] } ] }",
+        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted role:relay-description:0 [ spirit:core:0 role:relay:0 ] Explicit.[ Read Bash ] Only.[ { Psyche core Tertiary } ] } ] }",
     )
     .expect("role data");
     let repositories = tempdir().expect("source repositories");
@@ -295,7 +297,7 @@ fn roles_name_their_modules_by_colon_ids() {
     assert!(
         workspace
             .path()
-            .join(".claude/skills/spirit:core/SKILL.md")
+            .join(".claude/skills/spirit:core:0/SKILL.md")
             .is_file()
     );
     let agent = fs::read_to_string(workspace.path().join(".claude/agents/relay.md"))
@@ -303,12 +305,16 @@ fn roles_name_their_modules_by_colon_ids() {
     assert!(agent.starts_with(
         "---\nname: relay\ndescription: \"Relay the comments.\"\nmodel: \"sonnet\"\neffort: high\ntools: [Read, Bash]\n---\n"
     ));
-    assert!(agent.contains("Module IDs: spirit:core, role:relay\n"));
+    assert!(agent.contains("Module IDs: spirit:core:0, role:relay:0\n"));
     assert!(
-        agent.contains("<!-- module: spirit:core -->\nCORE_BODY\n<!-- end-module: spirit:core -->")
+        agent.contains(
+            "<!-- module: spirit:core:0 -->\nCORE_BODY\n<!-- end-module: spirit:core:0 -->"
+        )
     );
     assert!(
-        agent.contains("<!-- module: role:relay -->\nRELAY_BODY\n<!-- end-module: role:relay -->")
+        agent.contains(
+            "<!-- module: role:relay:0 -->\nRELAY_BODY\n<!-- end-module: role:relay:0 -->"
+        )
     );
 
     let output = Command::new(binary())
@@ -321,4 +327,51 @@ fn roles_name_their_modules_by_colon_ids() {
         .output()
         .expect("runtime checks");
     assert!(output.status.success(), "{output:?}");
+}
+
+#[test]
+fn each_version_of_a_subject_is_a_module_and_nothing_else_is() {
+    let curriculum = tempdir().expect("curriculum root");
+    curriculum_with_empty_roles(curriculum.path());
+    let repositories = tempdir().expect("source repositories");
+    let psyche = repositories.path().join("psyche-belief");
+    let core = psyche.join("spirit/core");
+    fs::create_dir_all(&core).expect("subject directory");
+    fs::write(core.join("0.md"), "Version zero.\n").expect("version 0");
+    fs::write(core.join("1.md"), "Version one.\n").expect("version 1");
+    // Not versions: a leading zero, a word, a file of another kind.
+    fs::write(core.join("01.md"), "Not canonical.\n").expect("leading zero");
+    fs::write(core.join("draft.md"), "Not a version.\n").expect("word stem");
+    fs::write(core.join("0.txt"), "Not Markdown.\n").expect("other extension");
+    // A file beside the subjects, in the layout before versions, is not a module.
+    fs::write(psyche.join("spirit/flat.md"), "Flat.\n").expect("flat file");
+
+    let workspace = tempdir().expect("workspace");
+    let output = Command::new(binary())
+        .arg(deployment_request(
+            "Generate",
+            curriculum.path(),
+            &[("Psyche", &psyche)],
+            workspace.path(),
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(output.status.success(), "{output:?}");
+    let expected: BTreeSet<String> = ["spirit:core:0", "spirit:core:1"]
+        .into_iter()
+        .map(String::from)
+        .collect();
+    assert_eq!(
+        generated_skill_names(workspace.path(), ".claude/skills"),
+        expected
+    );
+    assert_eq!(
+        fs::read_to_string(
+            workspace
+                .path()
+                .join(".claude/skills/spirit:core:1/SKILL.md")
+        )
+        .expect("version 1"),
+        "Version one.\n"
+    );
 }

@@ -1,8 +1,9 @@
 use crate::{
     catalog::SkillCatalog,
-    generated::{Effort, Permission, RoleDefinition, RoleTools, Roles, Surface},
+    generated::{RoleDefinition, Roles},
     runtime::{Error, SkillTarget},
 };
+use signal_curriculum_nexus::{Effort, Permission, RoleTools, Surface};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RolePacket {
@@ -131,7 +132,7 @@ mod tests {
         let round_tripped = Potential::<RolesDocument>::from(text.clone())
             .actualize(&mut Budget {
                 remaining: 1_024,
-                reader: ReaderBudget { remaining: 1_024 },
+                reader: ReaderBudget::try_from(1_024).expect("a constant reader budget"),
                 depth: 0,
                 maximum_depth: 1_024,
             })

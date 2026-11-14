@@ -1,6 +1,6 @@
 [package]
 name = "curriculum-deploy"
-version = "0.9.0"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
@@ -17,14 +17,16 @@ name = "curriculum-deploy"
 path = "src/main.rs"
 
 [dependencies]
-datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "4dff16b4f7412febc3b71aac8b49680cd20988cb", features = ["rkyv"] }
-protos = { git = "https://github.com/LiGoldragon/protos", rev = "15b41da8f2579e73ead59bc0c2b97529b8ac32d3" }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526", features = ["rkyv"] }
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598" }
+# The Curriculum Nexus's wire: what a role projection asks and is answered.
+signal-curriculum-nexus = { git = "https://github.com/LiGoldragon/signal-curriculum-nexus", rev = "3e8b5b9", features = ["datom"] }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 sha2 = "=0.10.9"
 thiserror = "2"
 
 [dev-dependencies]
-ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "c2653dd82adbdb1f1f2f654405c6620e0d06fd58" }
+ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "8c95310" }
 tempfile = "3"
 
 [lints.rust]

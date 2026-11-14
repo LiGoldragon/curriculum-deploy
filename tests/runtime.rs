@@ -14,16 +14,36 @@ fn data_root() -> String {
         .unwrap_or_else(|_| "/external-fixture-not-configured".into())
 }
 
-/// The external fixture still holds its skills under `skills/`; it is
-/// declared as one skill source beside its role data.
+/// The three belief repositories of the external data, each declared under
+/// its aspect.
+fn belief_sources() -> Vec<(&'static str, std::path::PathBuf)> {
+    [
+        ("Psyche", "CURRICULUM_TEST_PSYCHE_BELIEF"),
+        ("Mind", "CURRICULUM_TEST_MIND_BELIEF"),
+        ("Field", "CURRICULUM_TEST_FIELD_BELIEF"),
+    ]
+    .into_iter()
+    .map(|(aspect, variable)| {
+        (
+            aspect,
+            std::env::var(variable)
+                .unwrap_or_else(|_| "/external-fixture-not-configured".into())
+                .into(),
+        )
+    })
+    .collect()
+}
+
+/// The external data: Curriculum's checkout for its roles, and the belief
+/// repositories for the modules.
 fn request(operation: &str, workspace: &std::path::Path) -> String {
     let data_root = data_root();
-    deployment_request(
-        operation,
-        Path::new(&data_root),
-        &[("Mind", &Path::new(&data_root).join("skills"))],
-        workspace,
-    )
+    let sources = belief_sources();
+    let sources: Vec<(&str, &Path)> = sources
+        .iter()
+        .map(|(aspect, path)| (*aspect, path.as_path()))
+        .collect();
+    deployment_request(operation, Path::new(&data_root), &sources, workspace)
 }
 
 fn deployment_request(
@@ -44,19 +64,49 @@ fn deployment_request(
     )
 }
 
-fn authored_skill_names(data_root: &Path) -> BTreeSet<String> {
-    fs::read_dir(data_root.join("skills"))
-        .expect("authored fixture skills")
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            entry
-                .path()
-                .extension()
-                .is_some_and(|extension| extension == "md")
-                .then(|| entry.file_name().into_string().expect("UTF-8 skill name"))
-        })
-        .map(|name| name.trim_end_matches(".md").to_owned())
-        .collect()
+/// Every module the belief repositories declare in their modules.datom, of
+/// the kinds the runtime reads: `<kind>:<subject>:<version>`, one per
+/// declared version, with the file holding its text.
+fn declared_modules() -> std::collections::BTreeMap<String, std::path::PathBuf> {
+    const KINDS: [&str; 6] = [
+        "Compensation",
+        "Intent",
+        "Knowledge",
+        "Role",
+        "Spirit",
+        "Vision",
+    ];
+    let mut modules = std::collections::BTreeMap::new();
+    for (_, source) in belief_sources() {
+        let declarations =
+            fs::read_to_string(source.join("modules.datom")).expect("module declarations");
+        for declaration in declarations.split('{').skip(1) {
+            let words: Vec<&str> = declaration
+                .split(|c: char| c.is_whitespace() || c == '[' || c == ']')
+                .filter(|word| !word.is_empty())
+                .collect();
+            let [kind, subject, rest @ ..] = words.as_slice() else {
+                continue;
+            };
+            if !KINDS.contains(kind) {
+                continue;
+            }
+            for version in rest
+                .iter()
+                .take_while(|word| word.bytes().all(|b| b.is_ascii_digit()))
+            {
+                let kind = kind.to_lowercase();
+                modules.insert(
+                    format!("{kind}:{subject}:{version}"),
+                    source
+                        .join(&kind)
+                        .join(subject)
+                        .join(format!("{version}.md")),
+                );
+            }
+        }
+    }
+    modules
 }
 
 fn generated_skill_names(workspace: &Path, surface: &str) -> BTreeSet<String> {
@@ -66,6 +116,14 @@ fn generated_skill_names(workspace: &Path, surface: &str) -> BTreeSet<String> {
         .filter(|entry| entry.path().join("SKILL.md").is_file())
         .map(|entry| entry.file_name().into_string().expect("UTF-8 skill name"))
         .collect()
+}
+
+/// The path of a subject's version 0 under a module-kind directory, its
+/// subject directory made.
+fn version_zero(kind_directory: &Path, subject: &str) -> std::path::PathBuf {
+    let directory = kind_directory.join(subject);
+    fs::create_dir_all(&directory).expect("subject directory");
+    directory.join("0.md")
 }
 
 #[test]
@@ -83,74 +141,45 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
         .expect("runtime starts");
     assert!(output.status.success(), "{output:?}");
 
-    let source_skills = authored_skill_names(Path::new(&data_root()));
-    assert_eq!(
-        generated_skill_names(workspace.path(), ".agents/skills"),
-        source_skills,
-        "Codex generated skills must exactly cover the authored source catalog"
-    );
-    assert_eq!(
-        generated_skill_names(workspace.path(), ".claude/skills"),
-        source_skills,
-        "Claude generated skills must exactly cover the authored source catalog"
-    );
-    assert_eq!(
-        generated_skill_names(workspace.path(), ".opencode/skills"),
-        source_skills,
-        "OpenCode generated skills must exactly cover the authored source catalog"
-    );
+    let modules = declared_modules();
+    let declared: BTreeSet<String> = modules.keys().cloned().collect();
     assert!(
-        workspace
-            .path()
-            .join(".claude/skills/design/SKILL.md")
-            .is_file()
+        !declared.is_empty(),
+        "the belief repositories declare modules"
     );
-    assert!(
-        workspace
-            .path()
-            .join(".claude/skills/realization/SKILL.md")
-            .is_file()
-    );
+    for surface in [".agents/skills", ".claude/skills", ".opencode/skills"] {
+        assert_eq!(
+            generated_skill_names(workspace.path(), surface),
+            declared,
+            "{surface} must cover exactly the modules the belief repositories declare"
+        );
+    }
     assert!(!workspace.path().join("flows").exists());
-
-    let main = fs::read_to_string(workspace.path().join(".agents/skills/main-flow/SKILL.md"))
-        .expect("main-flow role");
-    assert!(main.contains("user-only: true"));
-    assert!(main.contains("FLOW_ID"));
-    assert!(main.contains("FLOW_DIRECTORY"));
-    assert!(!main.contains("THREAD_ID"));
-    assert!(main.contains("flow-id codex --flows-root"));
-    assert!(main.contains("normalized hexadecimal alias"));
-    assert_eq!(
-        fs::read_to_string(
+    for (name, source) in &modules {
+        let user_only = fs::read_to_string(source)
+            .expect("module source")
+            .lines()
+            .any(|line| line == "user-only: true");
+        let skill = fs::read_to_string(
             workspace
                 .path()
-                .join(".agents/skills/main-flow/agents/openai.yaml"),
+                .join(".claude/skills")
+                .join(name)
+                .join("SKILL.md"),
         )
-        .expect("main-flow invocation policy"),
-        "policy:\n  allow_implicit_invocation: false\n"
-    );
-
-    let claude_main =
-        fs::read_to_string(workspace.path().join(".claude/skills/main-flow/SKILL.md"))
-            .expect("main-flow Claude role");
-    assert!(claude_main.contains("disable-model-invocation: true"));
-    assert!(!claude_main.contains("user-only: true"));
-
-    let evidence = fs::read_to_string(
-        workspace
-            .path()
-            .join(".agents/skills/flow-evidence/SKILL.md"),
-    )
-    .expect("flow-evidence capability");
-    assert!(evidence.contains("named tool or flow will consume one"));
-    assert!(evidence.contains("main-flow-reserved unique path"));
-    assert!(
-        !workspace
-            .path()
-            .join(".agents/skills/flow-evidence/agents/openai.yaml")
-            .exists()
-    );
+        .expect("Claude skill");
+        assert!(!skill.contains("\nuser-only: true\n"), "{name}");
+        assert_eq!(
+            workspace
+                .path()
+                .join(".agents/skills")
+                .join(name)
+                .join("agents/openai.yaml")
+                .is_file(),
+            user_only,
+            "{name}: a user-only module, and only one, keeps an explicit Codex route"
+        );
+    }
 
     let generated_role_files: Vec<_> = [".claude/agents", ".codex/agents", ".pi/agents"]
         .into_iter()
@@ -161,7 +190,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     let RolesDocument::Roles(authored_roles) = Potential::<RolesDocument>::from(roles_source)
         .actualize(&mut Budget {
             remaining: 16_384,
-            reader: ReaderBudget { remaining: 16_384 },
+            reader: ReaderBudget::try_from(16_384).expect("a constant reader budget"),
             depth: 0,
             maximum_depth: 16_384,
         })
@@ -173,13 +202,13 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     );
     for role in &authored_roles.role_definition_vector {
         let relative = match role.surface {
-            curriculum_deploy::generated::Surface::ClaudeAgent => {
+            signal_curriculum_nexus::Surface::ClaudeAgent => {
                 format!(".claude/agents/{}.md", role.first_string)
             }
-            curriculum_deploy::generated::Surface::CodexAgent => {
+            signal_curriculum_nexus::Surface::CodexAgent => {
                 format!(".codex/agents/{}.toml", role.first_string)
             }
-            curriculum_deploy::generated::Surface::PiAgent => {
+            signal_curriculum_nexus::Surface::PiAgent => {
                 format!(".pi/agents/{}.md", role.first_string)
             }
         };
@@ -192,7 +221,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
         Potential::<GeneratedRoleOutputDocument>::from(inventory)
             .actualize(&mut Budget {
                 remaining: 16_384,
-                reader: ReaderBudget { remaining: 16_384 },
+                reader: ReaderBudget::try_from(16_384).expect("a constant reader budget"),
                 depth: 0,
                 maximum_depth: 16_384,
             })
@@ -230,12 +259,6 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(!stale.exists());
     assert!(!retired_agent_skill.exists());
     assert!(!retired_claude_skill.exists());
-    assert!(
-        workspace
-            .path()
-            .join(".agents/skills/design/agents/openai.yaml")
-            .is_file()
-    );
     let output = Command::new(binary())
         .arg(request("Check", workspace.path()))
         .output()
@@ -269,7 +292,7 @@ fn skill_conditionals_render_only_for_their_target() {
     fs::create_dir_all(&skills).expect("skills directory");
     fs::write(data.path().join("roles.datom"), "Roles.{ [] }").expect("empty role data");
     fs::write(
-        skills.join("commands.md"),
+        version_zero(&skills, "commands"),
         "Shared command.\n{% if claude %}\nclaude command\n{% endif %}\n{% if codex %}\ncodex command\n{% endif %}\n{% if opencode %}\nopencode command\n{% endif %}\n{% if pi %}\npi command\n{% endif %}\n",
     )
     .expect("conditional skill");
@@ -289,7 +312,7 @@ fn skill_conditionals_render_only_for_their_target() {
     let claude = fs::read_to_string(
         workspace
             .path()
-            .join(".claude/skills/compensation:commands/SKILL.md"),
+            .join(".claude/skills/compensation:commands:0/SKILL.md"),
     )
     .expect("Claude skill");
     assert!(claude.contains("claude command"));
@@ -300,7 +323,7 @@ fn skill_conditionals_render_only_for_their_target() {
     let codex = fs::read_to_string(
         workspace
             .path()
-            .join(".agents/skills/compensation:commands/SKILL.md"),
+            .join(".agents/skills/compensation:commands:0/SKILL.md"),
     )
     .expect("Codex skill");
     assert!(codex.contains("codex command"));
@@ -311,11 +334,11 @@ fn skill_conditionals_render_only_for_their_target() {
     let opencode = fs::read_to_string(
         workspace
             .path()
-            .join(".opencode/skills/compensation:commands/SKILL.md"),
+            .join(".opencode/skills/compensation:commands:0/SKILL.md"),
     )
     .expect("OpenCode skill");
     assert_eq!(
-        opencode, "---\nname: compensation:commands\n---\nShared command.\nopencode command\n",
+        opencode, "---\nname: compensation:commands:0\n---\nShared command.\nopencode command\n",
         "OpenCode receives only its own block, under frontmatter that names the skill"
     );
 }
@@ -328,7 +351,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
     fs::create_dir_all(&skills).expect("skills directory");
     fs::write(data.path().join("roles.datom"), "Roles.{ [] }").expect("empty role data");
     let body = "---\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n";
-    fs::write(skills.join("spirit.md"), body).expect("spirit skill");
+    fs::write(version_zero(&skills, "spirit"), body).expect("spirit skill");
 
     let workspace = tempdir().expect("workspace");
     let output = Command::new(binary())
@@ -346,10 +369,10 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
         fs::read_to_string(
             workspace
                 .path()
-                .join(".opencode/skills/spirit:spirit/SKILL.md"),
+                .join(".opencode/skills/spirit:spirit:0/SKILL.md"),
         )
         .expect("OpenCode skill"),
-        "---\nname: spirit:spirit\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n"
+        "---\nname: spirit:spirit:0\ndescription: Every agent task.\ndependencies: [behavior]\n---\n\nThe body.\n"
     );
     for surface in [".agents/skills", ".claude/skills"] {
         assert_eq!(
@@ -357,7 +380,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
                 workspace
                     .path()
                     .join(surface)
-                    .join("spirit:spirit/SKILL.md"),
+                    .join("spirit:spirit:0/SKILL.md"),
             )
             .expect("generated skill"),
             body,
@@ -400,11 +423,11 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
     fs::create_dir_all(&skills).expect("skills directory");
     fs::write(data.path().join("roles.datom"), "Roles.{ [] }").expect("empty role data");
     fs::write(
-        skills.join("main-flow.md"),
+        version_zero(&skills, "main-flow"),
         "---\ndescription: Main flow\nuser-only: true\n---\n\nExplicit main flow.\n",
     )
     .expect("main flow skill");
-    fs::write(skills.join("subflow.md"), "Ordinary subflow.\n").expect("subflow skill");
+    fs::write(version_zero(&skills, "subflow"), "Ordinary subflow.\n").expect("subflow skill");
 
     let workspace = tempdir().expect("workspace");
     let output = Command::new(binary())
@@ -429,7 +452,7 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
         fs::read_to_string(
             workspace
                 .path()
-                .join(".agents/skills/compensation:main-flow/agents/openai.yaml"),
+                .join(".agents/skills/compensation:main-flow:0/agents/openai.yaml"),
         )
         .expect("explicit main-flow policy"),
         "policy:\n  allow_implicit_invocation: false\n"
@@ -437,14 +460,14 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
     assert!(
         workspace
             .path()
-            .join(".agents/skills/compensation:main-flow/SKILL.md")
+            .join(".agents/skills/compensation:main-flow:0/SKILL.md")
             .is_file(),
         "the explicit route has a generated source"
     );
     assert!(
         !workspace
             .path()
-            .join(".agents/skills/compensation:subflow/agents/openai.yaml")
+            .join(".agents/skills/compensation:subflow:0/agents/openai.yaml")
             .exists(),
         "ordinary skills retain implicit invocation"
     );
@@ -509,7 +532,7 @@ fn curriculum_roles_round_trip_through_textualize() {
 
     let budget = || Budget {
         remaining: 16_384,
-        reader: ReaderBudget { remaining: 16_384 },
+        reader: ReaderBudget::try_from(16_384).expect("a constant reader budget"),
         depth: 0,
         maximum_depth: 16_384,
     };

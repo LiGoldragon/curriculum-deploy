@@ -66,9 +66,8 @@ impl<T: Composing> BudgetedActualizing<T> for Potential<T> {
     fn actualize_with_limit(&mut self, limit: i64) -> Result<T, datom_codec::Error> {
         self.actualize(&mut Budget {
             remaining: limit,
-            reader: ReaderBudget {
-                remaining: usize::try_from(limit).expect("positive fixed budget"),
-            },
+            reader: ReaderBudget::try_from(usize::try_from(limit).expect("positive fixed budget"))
+                .expect("a constant reader budget"),
             depth: 0,
             maximum_depth: limit,
         })
@@ -182,11 +181,11 @@ pub(crate) enum SkillTarget {
 }
 
 impl SkillTarget {
-    pub(crate) fn for_surface(surface: &crate::generated::Surface) -> Self {
+    pub(crate) fn for_surface(surface: &signal_curriculum_nexus::Surface) -> Self {
         match surface {
-            crate::generated::Surface::ClaudeAgent => Self::Claude,
-            crate::generated::Surface::CodexAgent => Self::Codex,
-            crate::generated::Surface::PiAgent => Self::Pi,
+            signal_curriculum_nexus::Surface::ClaudeAgent => Self::Claude,
+            signal_curriculum_nexus::Surface::CodexAgent => Self::Codex,
+            signal_curriculum_nexus::Surface::PiAgent => Self::Pi,
         }
     }
 
