@@ -11,7 +11,9 @@ of every declared skill source,
 each declared with its aspect (Psyche, Mind or Field), unions them into one
 catalog ordered by name, refuses a skill defined by two sources, and renders
 the catalog into each supported skill surface. The Curriculum checkout gives
-the role data.
+the role data, read in Curriculum's own `RolesDocument` format from the
+`curriculum` crate; each role's packet is the Curriculum Nexus's
+`ComposeRole` answer for it.
 
 ## Modules
 
@@ -20,10 +22,11 @@ the role data.
 - `src/runtime.rs` -- CLI dispatch, root-head convention, Deployment logic,
   skill template rendering, and the typed Datom conversion chain.
 - `src/catalog.rs` -- declared skill sources and the merged skill catalog.
-- `src/roles.rs` -- role packet assembly from the Roles data.
-- `src/role_projection.rs` -- typed ComposeRole client, explicit
-  consumer-to-destination projection, atomic writes, provenance, and owned
-  cleanup.
+- `src/roles.rs` -- Generate's role packets: each declared role composed by
+  the Curriculum Nexus, at its surface's destination.
+- `src/role_projection.rs` -- typed ComposeRole client and the one packet
+  renderer, explicit consumer-to-destination projection, atomic writes,
+  provenance, and owned cleanup.
 - `src/main.rs` -- entry point.
 
 ## Workspace role projection

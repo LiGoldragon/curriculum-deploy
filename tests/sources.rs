@@ -1,11 +1,17 @@
+mod support;
+
 use std::{collections::BTreeSet, fs, path::Path, process::Command};
 
+use signal_curriculum_nexus::Output;
+use support::{StandInCurriculum, composition};
 use tempfile::tempdir;
 
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_curriculum-deploy")
 }
 
+/// A request whose Curriculum Nexus listens at `curriculum.sock` in the
+/// Curriculum root.
 fn deployment_request(
     operation: &str,
     curriculum: &Path,
@@ -18,9 +24,10 @@ fn deployment_request(
         .collect::<Vec<_>>()
         .join(" ");
     format!(
-        "{operation}.{{ «{}» [ {sources} ] «{}» }}",
+        "{operation}.{{ «{}» [ {sources} ] «{}» «{}» }}",
         curriculum.display(),
-        workspace.display()
+        workspace.display(),
+        curriculum.join("curriculum.sock").display()
     )
 }
 
@@ -254,32 +261,33 @@ fn an_undeclared_aspect_is_refused() {
 }
 
 #[test]
-fn roles_name_their_modules_by_colon_ids() {
+fn role_packets_are_the_curriculum_nexus_compositions() {
     let curriculum = tempdir().expect("curriculum root");
     fs::write(
         curriculum.path().join("roles.datom"),
-        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted role:relay-description:0 [ spirit:core:0 role:relay:0 ] Explicit.[ Read Bash ] Only.[ { Psyche core Tertiary } ] } ] }",
+        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted role:relay-description:0 [ spirit:core:0 role:relay:0 ] Explicit.[ Read Bash ] Only.[ { Psyche core Tertiary } ] } { relay CodexAgent sonnet High Unrestricted role:relay-description:0 [ spirit:core:0 role:relay:0 ] Inherit Any } ] }",
     )
     .expect("role data");
+    let context = "These are your skills, given here; do not reload them.\n\nModule IDs: spirit:core:0, role:relay:0\n\n<!-- module: spirit:core:0 -->\nCORE_BODY\n<!-- end-module: spirit:core:0 -->\n";
+    let _nexus = StandInCurriculum::answering(
+        &curriculum.path().join("curriculum.sock"),
+        move |selection| {
+            Output::RoleComposed(composition(selection, "Relay the comments.", context))
+        },
+    );
     let repositories = tempdir().expect("source repositories");
     let psyche = source_with(
         repositories.path(),
         "psyche-skills",
         "spirit",
-        &[("core", "---\ndescription: Core\n---\n\nCORE_BODY\n")],
-    );
-    let field = source_with(
-        repositories.path(),
-        "field-skills",
-        "role",
-        &[
-            ("relay-description", "Relay the comments.\n"),
-            ("relay", "RELAY_BODY\n"),
-        ],
+        &[(
+            "core",
+            "---\ndescription: Core\n---\n\nA SOURCE BODY THE PACKETS DO NOT CARRY\n",
+        )],
     );
 
     let workspace = tempdir().expect("workspace");
-    let sources = [("Psyche", psyche.as_path()), ("Field", field.as_path())];
+    let sources = [("Psyche", psyche.as_path())];
     let output = Command::new(binary())
         .arg(deployment_request(
             "Generate",
@@ -292,7 +300,7 @@ fn roles_name_their_modules_by_colon_ids() {
     assert!(output.status.success(), "{output:?}");
     assert_eq!(
         String::from_utf8(output.stdout).expect("receipt").trim(),
-        "Generated.{ 3 1 }"
+        "Generated.{ 1 2 }"
     );
     assert!(
         workspace
@@ -300,20 +308,19 @@ fn roles_name_their_modules_by_colon_ids() {
             .join(".claude/skills/spirit:core:0/SKILL.md")
             .is_file()
     );
-    let agent = fs::read_to_string(workspace.path().join(".claude/agents/relay.md"))
-        .expect("Claude role packet");
-    assert!(agent.starts_with(
-        "---\nname: relay\ndescription: \"Relay the comments.\"\nmodel: \"sonnet\"\neffort: high\ntools: [Read, Bash]\n---\n"
-    ));
-    assert!(agent.contains("Module IDs: spirit:core:0, role:relay:0\n"));
-    assert!(
-        agent.contains(
-            "<!-- module: spirit:core:0 -->\nCORE_BODY\n<!-- end-module: spirit:core:0 -->"
+    assert_eq!(
+        fs::read_to_string(workspace.path().join(".claude/agents/relay.md"))
+            .expect("Claude role packet"),
+        format!(
+            "---\nname: relay\ndescription: \"Relay the comments.\"\nmodel: \"sonnet\"\neffort: high\ntools: [Read, Bash]\n---\n\n{context}"
         )
     );
-    assert!(
-        agent.contains(
-            "<!-- module: role:relay:0 -->\nRELAY_BODY\n<!-- end-module: role:relay:0 -->"
+    assert_eq!(
+        fs::read_to_string(workspace.path().join(".codex/agents/relay.toml"))
+            .expect("Codex role packet"),
+        format!(
+            "name = \"relay\"\ndescription = \"Relay the comments.\"\nmodel = \"sonnet\"\nmodel_reasoning_effort = \"high\"\ndeveloper_instructions = {:?}\n",
+            context.trim_end()
         )
     );
 
@@ -327,6 +334,45 @@ fn roles_name_their_modules_by_colon_ids() {
         .output()
         .expect("runtime checks");
     assert!(output.status.success(), "{output:?}");
+}
+
+#[test]
+fn a_role_the_curriculum_nexus_refuses_is_refused_and_nothing_is_written() {
+    let curriculum = tempdir().expect("curriculum root");
+    fs::write(
+        curriculum.path().join("roles.datom"),
+        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted role:relay-description:0 [ spirit:core:0 ] Inherit Any } ] }",
+    )
+    .expect("role data");
+    let _nexus = StandInCurriculum::answering(&curriculum.path().join("curriculum.sock"), |_| {
+        Output::Rejected("unknown role/surface".into())
+    });
+    let repositories = tempdir().expect("source repositories");
+    let psyche = source_with(
+        repositories.path(),
+        "psyche-skills",
+        "spirit",
+        &[("core", "Core.\n")],
+    );
+    let workspace = tempdir().expect("workspace");
+    let output = Command::new(binary())
+        .arg(deployment_request(
+            "Generate",
+            curriculum.path(),
+            &[("Psyche", &psyche)],
+            workspace.path(),
+        ))
+        .output()
+        .expect("runtime starts");
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unknown role/surface"),
+        "{output:?}"
+    );
+    assert_eq!(
+        fs::read_dir(workspace.path()).expect("workspace").count(),
+        0
+    );
 }
 
 #[test]

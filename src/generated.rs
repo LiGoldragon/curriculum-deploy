@@ -19,6 +19,7 @@ pub struct Configuration {
     pub first_string: String,
     pub skill_source_vector: std::vec::Vec<SkillSource>,
     pub second_string: String,
+    pub third_string: String,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -127,30 +128,4 @@ pub struct GeneratedRoleProvenance {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum GeneratedRoleProvenanceDocument {
     GeneratedRoleProvenance(GeneratedRoleProvenance),
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct RoleDefinition {
-    pub first_string: String,
-    pub surface: signal_curriculum_nexus::Surface,
-    pub second_string: String,
-    pub effort: signal_curriculum_nexus::Effort,
-    pub permission: signal_curriculum_nexus::Permission,
-    pub third_string: String,
-    pub string_vector: std::vec::Vec<String>,
-    pub role_tools: signal_curriculum_nexus::RoleTools,
-    pub role_callers: signal_curriculum_nexus::RoleCallers,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Roles {
-    pub role_definition_vector: std::vec::Vec<RoleDefinition>,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum RolesDocument {
-    Roles(Roles),
 }

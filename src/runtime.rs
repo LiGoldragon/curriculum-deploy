@@ -7,13 +7,15 @@ use datom_codec::{Actualizing, Budget, Composing, Datomizable, Potential};
 use protos::{Protosizable, ReaderBudget, Textualizable};
 use thiserror::Error as ThisError;
 
+use curriculum::generated::{Roles, RolesDocument};
+
 use crate::catalog::{Skill, SkillCatalog};
 use crate::generated::{
     Checked_Data, Generated_Data, GeneratedRoleOutputDocument, GeneratedRoleOutputs, Output,
-    Request, RolesDocument, Visualized_Data,
+    Request, Visualized_Data,
 };
 use crate::role_projection;
-use crate::roles::RolePacket;
+use crate::roles::ComposesRolePackets;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
@@ -133,25 +135,28 @@ impl Request {
             PathBuf::from(configuration.first_string),
             SkillCatalog::read(&configuration.skill_source_vector)?,
             PathBuf::from(configuration.second_string),
+            PathBuf::from(configuration.third_string),
         )?;
+        let skills = deployment.skills.count() as i64;
+        let roles = deployment.roles.role_definition_vector.len() as i64;
         let output = match mode {
             Mode::Generate => {
                 deployment.write()?;
                 Output::Generated(Generated_Data {
-                    first_integer: deployment.skills.count() as i64,
-                    second_integer: deployment.roles.len() as i64,
+                    first_integer: skills,
+                    second_integer: roles,
                 })
             }
             Mode::Check => {
                 deployment.check()?;
                 Output::Checked(Checked_Data {
-                    first_integer: deployment.skills.count() as i64,
-                    second_integer: deployment.roles.len() as i64,
+                    first_integer: skills,
+                    second_integer: roles,
                 })
             }
             Mode::Visualize => Output::Visualized(Visualized_Data {
-                first_integer: deployment.skills.count() as i64,
-                second_integer: deployment.roles.len() as i64,
+                first_integer: skills,
+                second_integer: roles,
             }),
         };
         Ok(output.datom_text())
@@ -164,45 +169,35 @@ enum Mode {
     Visualize,
 }
 
+/// One deployment: the skills its sources hold, and the roles Curriculum's
+/// roles file declares, whose packets the Curriculum Nexus at
+/// `curriculum_socket` composes.
 struct Deployment {
     workspace: PathBuf,
     skills: SkillCatalog,
-    roles: Vec<RolePacket>,
+    roles: Roles,
+    curriculum_socket: PathBuf,
 }
 
-/// A harness a skill body is rendered for. Pi bodies are parsed but have no
-/// projected surface.
+/// A harness a skill is rendered for, each with a skill surface. A
+/// `{% if pi %}` block is read and never selected: Pi has no skill surface.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum SkillTarget {
     Claude,
     Codex,
     OpenCode,
-    Pi,
 }
 
 impl SkillTarget {
-    pub(crate) fn for_surface(surface: &signal_curriculum_nexus::Surface) -> Self {
-        match surface {
-            signal_curriculum_nexus::Surface::ClaudeAgent => Self::Claude,
-            signal_curriculum_nexus::Surface::CodexAgent => Self::Codex,
-            signal_curriculum_nexus::Surface::PiAgent => Self::Pi,
-        }
-    }
-
-    pub(crate) fn render_role_body(self, body: &str, source: &Path) -> Result<String, Error> {
-        self.rendered(body, source)
-    }
-
-    /// Every target with a projected surface, in output order.
+    /// Every target, in output order.
     const PROJECTED: [Self; 3] = [Self::Codex, Self::Claude, Self::OpenCode];
 
     /// The workspace directory the harness reads its skills from.
-    fn surface(self) -> Option<&'static str> {
+    fn surface(self) -> &'static str {
         match self {
-            Self::Codex => Some(".agents/skills"),
-            Self::Claude => Some(".claude/skills"),
-            Self::OpenCode => Some(".opencode/skills"),
-            Self::Pi => None,
+            Self::Codex => ".agents/skills",
+            Self::Claude => ".claude/skills",
+            Self::OpenCode => ".opencode/skills",
         }
     }
 }
@@ -252,7 +247,7 @@ impl SkillBodyRendering for SkillTarget {
                 "{% if claude %}" => Some(self == Self::Claude),
                 "{% if codex %}" => Some(self == Self::Codex),
                 "{% if opencode %}" => Some(self == Self::OpenCode),
-                "{% if pi %}" => Some(self == Self::Pi),
+                "{% if pi %}" => Some(false),
                 "{% raw %}" => {
                     raw = true;
                     continue;
@@ -326,6 +321,7 @@ impl Deployment {
         curriculum_root: PathBuf,
         skills: SkillCatalog,
         workspace_root: PathBuf,
+        curriculum_socket: PathBuf,
     ) -> Result<Self, Error> {
         let role_path = curriculum_root.join("roles.datom");
         let source =
@@ -333,11 +329,11 @@ impl Deployment {
         let RolesDocument::Roles(roles) = Potential::<RolesDocument>::from(source)
             .actualize_with_limit(16_384)
             .map_err(DatomFaulting::datom_fault)?;
-        let packets = roles.packets(&skills)?;
         Ok(Self {
             workspace: workspace_root,
             skills,
-            roles: packets,
+            roles,
+            curriculum_socket,
         })
     }
 
@@ -345,9 +341,10 @@ impl Deployment {
         let mut outputs = Vec::new();
         for skill in self.skills.skills() {
             for target in SkillTarget::PROJECTED {
-                let surface = target.surface().expect("projected target has a surface");
                 outputs.push((
-                    PathBuf::from(surface).join(&skill.name).join("SKILL.md"),
+                    PathBuf::from(target.surface())
+                        .join(&skill.name)
+                        .join("SKILL.md"),
                     target.rendered_skill(skill)?,
                 ));
             }
@@ -360,13 +357,14 @@ impl Deployment {
                 ));
             }
         }
-        let inventory_paths = self.roles.iter().map(|role| role.path.clone()).collect();
+        let packets = self.roles.packets(&self.curriculum_socket)?;
+        let inventory_paths = packets.iter().map(|packet| packet.path.clone()).collect();
         let inventory = GeneratedRoleOutputDocument::GeneratedRoleOutputs(GeneratedRoleOutputs {
             string_vector: inventory_paths,
         });
         let inventory_text = inventory.datom_text();
-        for role in &self.roles {
-            outputs.push((PathBuf::from(&role.path), role.text.clone()));
+        for packet in packets {
+            outputs.push((PathBuf::from(packet.path), packet.text));
         }
         outputs.push((
             PathBuf::from("skills/generated-role-outputs.datom"),
@@ -402,7 +400,7 @@ impl Deployment {
 
     fn clean_previous_skills(&self) -> Result<(), Error> {
         for target in SkillTarget::PROJECTED {
-            let relative = Path::new(target.surface().expect("projected target has a surface"));
+            let relative = Path::new(target.surface());
             let path = self.safe(relative)?;
             if !path.exists() {
                 continue;

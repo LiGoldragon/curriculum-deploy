@@ -49,13 +49,7 @@ pub(crate) fn project(configuration: RoleProjectionConfiguration) -> Result<usiz
                 relative.display()
             )));
         }
-        let composition = compose_role(&source_socket, &projection.role_selection)?;
-        if composition.role_name != projection.role_selection.role_name
-            || composition.surface != projection.role_selection.surface
-        {
-            return Err(Error::RoleMismatch);
-        }
-        let text = render(&composition);
+        let (composition, text) = composed(&source_socket, &projection.role_selection)?;
         let output_sha = sha256(text.as_bytes());
         let provenance = RoleOutputProvenance {
             first_string: relative.to_string_lossy().into_owned(),
@@ -130,6 +124,21 @@ pub(crate) fn project(configuration: RoleProjectionConfiguration) -> Result<usiz
         }
     })?;
     Ok(outputs.len())
+}
+
+/// The Curriculum Nexus's composition of one role, and the packet it renders
+/// to: the one place a role packet's text is made, for ProjectRoles and for
+/// Generate alike.
+pub(crate) fn composed(
+    socket: &Path,
+    selection: &RoleSelection,
+) -> Result<(RoleComposition, String), Error> {
+    let composition = compose_role(socket, selection)?;
+    if composition.role_name != selection.role_name || composition.surface != selection.surface {
+        return Err(Error::RoleMismatch);
+    }
+    let text = render(&composition);
+    Ok((composition, text))
 }
 
 fn compose_role(socket: &Path, selection: &RoleSelection) -> Result<RoleComposition, Error> {

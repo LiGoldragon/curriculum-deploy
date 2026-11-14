@@ -20,7 +20,9 @@ path = "src/main.rs"
 datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526", features = ["rkyv"] }
 protos = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598" }
 # The Curriculum Nexus's wire: what a role projection asks and is answered.
-signal-curriculum-nexus = { git = "https://github.com/LiGoldragon/signal-curriculum-nexus", rev = "3e8b5b9", features = ["datom"] }
+signal-curriculum-nexus = { git = "https://github.com/LiGoldragon/signal-curriculum-nexus", rev = "4358aa1", features = ["datom"] }
+# Curriculum's roles file format, RolesDocument, declared in its curriculum.ethos.
+curriculum = { git = "https://github.com/LiGoldragon/Curriculum", rev = "1b6c454", default-features = false, features = ["datom"] }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 sha2 = "=0.10.9"
 thiserror = "2"

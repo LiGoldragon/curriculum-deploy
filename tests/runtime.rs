@@ -1,8 +1,12 @@
+mod support;
+
 use std::{collections::BTreeSet, fs, path::Path, process::Command};
 
-use curriculum_deploy::generated::{GeneratedRoleOutputDocument, RolesDocument};
+use curriculum::generated::RolesDocument;
+use curriculum_deploy::generated::GeneratedRoleOutputDocument;
 use datom_codec::{Actualizing, Budget, Potential};
 use protos::ReaderBudget;
+use support::StandInCurriculum;
 use tempfile::tempdir;
 
 fn binary() -> &'static str {
@@ -35,15 +39,22 @@ fn belief_sources() -> Vec<(&'static str, std::path::PathBuf)> {
 }
 
 /// The external data: Curriculum's checkout for its roles, and the belief
-/// repositories for the modules.
-fn request(operation: &str, workspace: &std::path::Path) -> String {
+/// repositories for the modules; the role packets come from the Curriculum
+/// Nexus at `socket`.
+fn request(operation: &str, workspace: &Path, socket: &Path) -> String {
     let data_root = data_root();
     let sources = belief_sources();
     let sources: Vec<(&str, &Path)> = sources
         .iter()
         .map(|(aspect, path)| (*aspect, path.as_path()))
         .collect();
-    deployment_request(operation, Path::new(&data_root), &sources, workspace)
+    deployment_request(
+        operation,
+        Path::new(&data_root),
+        &sources,
+        workspace,
+        socket,
+    )
 }
 
 fn deployment_request(
@@ -51,6 +62,7 @@ fn deployment_request(
     curriculum: &Path,
     sources: &[(&str, &Path)],
     workspace: &Path,
+    socket: &Path,
 ) -> String {
     let sources = sources
         .iter()
@@ -58,9 +70,10 @@ fn deployment_request(
         .collect::<Vec<_>>()
         .join(" ");
     format!(
-        "{operation}.{{ «{}» [ {sources} ] «{}» }}",
+        "{operation}.{{ «{}» [ {sources} ] «{}» «{}» }}",
         curriculum.display(),
-        workspace.display()
+        workspace.display(),
+        socket.display()
     )
 }
 
@@ -131,8 +144,11 @@ fn version_zero(kind_directory: &Path, subject: &str) -> std::path::PathBuf {
 fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     let workspace = tempdir().expect("workspace");
     let unrelated = tempdir().expect("unrelated current directory");
+    let runtime = tempdir().expect("Curriculum runtime");
+    let curriculum =
+        StandInCurriculum::composing_every_role(&runtime.path().join("curriculum.sock"));
     let output = Command::new(binary())
-        .arg(request("Generate", workspace.path()))
+        .arg(request("Generate", workspace.path(), &curriculum.socket))
         .current_dir(unrelated.path())
         .env_clear()
         .env("SKILLS_SOURCE_ROOT", "/poison")
@@ -203,13 +219,13 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     for role in &authored_roles.role_definition_vector {
         let relative = match role.surface {
             signal_curriculum_nexus::Surface::ClaudeAgent => {
-                format!(".claude/agents/{}.md", role.first_string)
+                format!(".claude/agents/{}.md", role.role_name.0)
             }
             signal_curriculum_nexus::Surface::CodexAgent => {
-                format!(".codex/agents/{}.toml", role.first_string)
+                format!(".codex/agents/{}.toml", role.role_name.0)
             }
             signal_curriculum_nexus::Surface::PiAgent => {
-                format!(".pi/agents/{}.md", role.first_string)
+                format!(".pi/agents/{}.md", role.role_name.0)
             }
         };
         assert!(workspace.path().join(relative).is_file());
@@ -252,7 +268,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     )
     .expect("prior typed inventory");
     let output = Command::new(binary())
-        .arg(request("Generate", workspace.path()))
+        .arg(request("Generate", workspace.path(), &curriculum.socket))
         .output()
         .expect("runtime regenerates");
     assert!(output.status.success(), "{output:?}");
@@ -260,7 +276,7 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
     assert!(!retired_agent_skill.exists());
     assert!(!retired_claude_skill.exists());
     let output = Command::new(binary())
-        .arg(request("Check", workspace.path()))
+        .arg(request("Check", workspace.path(), &curriculum.socket))
         .output()
         .expect("runtime checks generated output");
     assert!(output.status.success(), "{output:?}");
@@ -269,7 +285,11 @@ fn external_data_generates_skills_roles_and_a_typed_cleanup_inventory() {
 #[test]
 fn cli_accepts_only_one_inline_object() {
     let workspace = tempdir().expect("workspace");
-    let valid = request("Visualize", workspace.path());
+    let valid = request(
+        "Visualize",
+        workspace.path(),
+        &workspace.path().join("curriculum.sock"),
+    );
     for arguments in [
         Vec::new(),
         vec![valid.clone(), valid.clone()],
@@ -304,6 +324,7 @@ fn skill_conditionals_render_only_for_their_target() {
             data.path(),
             &[("Field", &source)],
             workspace.path(),
+            &data.path().join("curriculum.sock"),
         ))
         .output()
         .expect("runtime starts");
@@ -360,6 +381,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
             data.path(),
             &[("Psyche", &source)],
             workspace.path(),
+            &data.path().join("curriculum.sock"),
         ))
         .output()
         .expect("runtime starts");
@@ -394,6 +416,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
             data.path(),
             &[("Psyche", &source)],
             workspace.path(),
+            &data.path().join("curriculum.sock"),
         ))
         .output()
         .expect("runtime starts");
@@ -408,6 +431,7 @@ fn opencode_skill_frontmatter_names_the_skill_and_other_harnesses_are_unchanged(
             data.path(),
             &[("Psyche", &source)],
             workspace.path(),
+            &data.path().join("curriculum.sock"),
         ))
         .output()
         .expect("runtime starts");
@@ -436,6 +460,7 @@ fn user_only_catalog_entry_keeps_an_explicit_route_and_is_counted_in_the_receipt
             data.path(),
             &[("Field", &source)],
             workspace.path(),
+            &data.path().join("curriculum.sock"),
         ))
         .output()
         .expect("runtime starts");
@@ -526,7 +551,6 @@ fn curriculum_roles_round_trip_through_textualize() {
     let role_path = format!("{data_root}/roles.datom");
     let source = fs::read_to_string(&role_path).expect("roles.datom");
 
-    use curriculum_deploy::generated::RolesDocument;
     use datom_codec::{Actualizing, Budget, Datomizable, Potential};
     use protos::{Protosizable, ReaderBudget, Textualizable};
 
@@ -562,6 +586,7 @@ fn generated_values_archive_and_read_back_with_rkyv() {
             curriculum_deploy::generated::SkillSource::Field("/field".into()),
         ],
         second_string: "/primary".into(),
+        third_string: "/run/user/1001/curriculum/curriculum.sock".into(),
     };
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&configuration).expect("archives");
     let read =

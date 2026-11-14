@@ -2,18 +2,22 @@
 ;
 ; The request root is a data enum whose variants are the main operations.
 ; No CurriculumRequest wrapper:
-; Generate.{ «/curriculum» [ Psyche.«/psyche» Mind.«/mind» Field.«/field» ] «/primary» }
+; Generate.{ «/curriculum» [ Psyche.«/psyche» Mind.«/mind» Field.«/field» ] «/primary» «/run/user/1001/curriculum/curriculum.sock» }
 ; is the whole request. Curriculum gives the role data; each skill source is an
-; aspect repository whose modules sit at <kind>/<subject>/<version>.md.
+; aspect repository whose modules sit at <kind>/<subject>/<version>.md. The
+; last string is the Curriculum Nexus's socket: every role packet is the
+; Nexus's ComposeRole answer for that role, and the skill sources serve the
+; skills alone.
 ;
 ; What a role projection asks the Curriculum Nexus, and what it answers, is
-; the Nexus's own wire, signal-curriculum-nexus; the roles file is
-; Curriculum's, read here over the same types.
+; the Nexus's own wire, signal-curriculum-nexus. The roles file is
+; Curriculum's own format, RolesDocument, which this crate takes from the
+; curriculum crate and keeps no copy of.
 
 Library
-[ :signal_curriculum_nexus:[ RoleSelection Surface Effort Permission RoleTools RoleCallers ] ]
+[ :signal_curriculum_nexus:[ RoleSelection Surface ] ]
 [ SkillSource.[ Psyche.String Mind.String Field.String ]
-  Configuration.{ String Vector<SkillSource> String }
+  Configuration.{ String Vector<SkillSource> String String }
   RoleProjection.{ RoleSelection String }
   RoleProjectionConfiguration.{ String String Vector<RoleProjection> }
   Request.[ Generate.Configuration Check.Configuration Visualize.Configuration
@@ -27,10 +31,7 @@ Library
   RoleSourceProvenance.{ String String String String String String String }
   RoleOutputProvenance.{ String String Surface String String String Vector<RoleSourceProvenance> }
   GeneratedRoleProvenance.{ Vector<RoleOutputProvenance> }
-  GeneratedRoleProvenanceDocument.[ GeneratedRoleProvenance ]
-  RoleDefinition.{ String Surface String Effort Permission String Vector<String> RoleTools RoleCallers }
-  Roles.{ Vector<RoleDefinition> }
-  RolesDocument.[ Roles ] ]
+  GeneratedRoleProvenanceDocument.[ GeneratedRoleProvenance ] ]
 
 []
 []
