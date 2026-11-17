@@ -265,7 +265,7 @@ fn role_packets_are_the_curriculum_nexus_compositions() {
     let curriculum = tempdir().expect("curriculum root");
     fs::write(
         curriculum.path().join("roles.datom"),
-        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted role:relay-description:0 [ spirit:core:0 role:relay:0 ] Explicit.[ Read Bash ] Only.[ { Psyche core Tertiary } ] } { relay CodexAgent sonnet High Unrestricted role:relay-description:0 [ spirit:core:0 role:relay:0 ] Inherit Any } ] }",
+        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted { Role relay-description Single.0 } [ { Spirit core Single.0 } { Role relay Single.0 } ] Explicit.[ Read Bash ] Only.[ { Psyche core Tertiary } ] } { relay CodexAgent sonnet High Unrestricted { Role relay-description Single.0 } [ { Spirit core Single.0 } { Role relay Single.0 } ] Inherit Any } ] }",
     )
     .expect("role data");
     let context = "These are your skills, given here; do not reload them.\n\nModule IDs: spirit:core:0, role:relay:0\n\n<!-- module: spirit:core:0 -->\nCORE_BODY\n<!-- end-module: spirit:core:0 -->\n";
@@ -341,7 +341,7 @@ fn a_role_the_curriculum_nexus_refuses_is_refused_and_nothing_is_written() {
     let curriculum = tempdir().expect("curriculum root");
     fs::write(
         curriculum.path().join("roles.datom"),
-        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted role:relay-description:0 [ spirit:core:0 ] Inherit Any } ] }",
+        "Roles.{ [ { relay ClaudeAgent sonnet High Unrestricted { Role relay-description Single.0 } [ { Spirit core Single.0 } ] Inherit Any } ] }",
     )
     .expect("role data");
     let _nexus = StandInCurriculum::answering(&curriculum.path().join("curriculum.sock"), |_| {
