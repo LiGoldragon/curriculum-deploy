@@ -6,7 +6,10 @@
   8e63176 and Curriculum 0.2.0 at 60609c5 (the revisions behind the running
   rust_curriculum-0.2.0). The 0.1 to 0.2 wire change is deliberately
   incompatible with 0.10's frames. Every crate the two share is locked to
-  Curriculum's Cargo.lock at that revision; dev ethos-zero 970459d.
+  Curriculum's Cargo.lock at that revision; dev ethos-zero 970459d. The role provenance renders each
+  `ModuleIdentity` struct as Curriculum's colon identity text
+  (`IdentityText`). The flake's `curriculum` data input moves to 60609c5, whose
+  roles.datom is in the 0.2 format.
 
 ## 0.10.0
 

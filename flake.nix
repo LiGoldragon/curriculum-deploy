@@ -11,7 +11,7 @@
     # The external data: Curriculum's roles, and the three belief
     # repositories whose modules sit at <kind>/<subject>/<version>.md.
     curriculum = {
-      url = "github:LiGoldragon/Curriculum/e3ffb318e4575a67323a52214711856d9a206ed0";
+      url = "github:LiGoldragon/Curriculum/60609c55f90432782625275294636a4e396d9497";
       flake = false;
     };
     psyche-belief = {
