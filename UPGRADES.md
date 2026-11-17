@@ -1,5 +1,13 @@
 # Upgrades
 
+## 0.11.0
+
+- The wire is the running Curriculum Nexus's: signal-curriculum-nexus 0.2.0 at
+  8e63176 and Curriculum 0.2.0 at 60609c5 (the revisions behind the running
+  rust_curriculum-0.2.0). The 0.1 to 0.2 wire change is deliberately
+  incompatible with 0.10's frames. Every crate the two share is locked to
+  Curriculum's Cargo.lock at that revision; dev ethos-zero 970459d.
+
 ## 0.10.0
 
 - Modules are read in the versioned layout the belief repositories hold:

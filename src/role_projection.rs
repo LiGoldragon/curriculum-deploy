@@ -7,6 +7,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+use curriculum::registry::IdentityText;
 use datom_codec::{Actualizing, Budget, Datomizable, Potential};
 use protos::{Protosizable, ReaderBudget, Textualizable};
 use sha2::{Digest, Sha256};
@@ -61,16 +62,21 @@ pub(crate) fn project(configuration: RoleProjectionConfiguration) -> Result<usiz
             role_source_provenance_vector: composition
                 .context_provenance_vector
                 .iter()
-                .map(|item| RoleSourceProvenance {
-                    first_string: item.module_identity.0.clone(),
-                    second_string: item.repository_name.0.clone(),
-                    third_string: item.source_revision.0.clone(),
-                    fourth_string: item.source_relative_path.0.clone(),
-                    fifth_string: item.source_sha256.0.clone(),
-                    sixth_string: item.body_sha256.0.clone(),
-                    seventh_string: item.rendered_sha256.0.clone(),
+                .map(|item| {
+                    Ok(RoleSourceProvenance {
+                        first_string: item
+                            .module_identity
+                            .identity_text()
+                            .map_err(|reason| Error::RoleSource(source_socket.clone(), reason))?,
+                        second_string: item.repository_name.0.clone(),
+                        third_string: item.source_revision.0.clone(),
+                        fourth_string: item.source_relative_path.0.clone(),
+                        fifth_string: item.source_sha256.0.clone(),
+                        sixth_string: item.body_sha256.0.clone(),
+                        seventh_string: item.rendered_sha256.0.clone(),
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, Error>>()?,
         };
         outputs.push(Output {
             relative,
@@ -291,8 +297,9 @@ mod tests {
     use crate::generated::RoleProjection;
     use signal_curriculum_nexus::{
         BodySha256, ContextPayloadSha256, ContextProvenance, ContextText, DescriptionPayloadSha256,
-        DescriptionText, ModelId, ModuleIdentity, RenderedSha256, RepositoryName, RoleCallers,
-        RoleName, SourceRelativePath, SourceRevision, SourceSha256, StartupPlacement,
+        DescriptionText, ModelId, ModuleIdentity, ModuleKind, ModuleSubject, RenderedSha256,
+        RepositoryName, RoleCallers, RoleName, SourceRelativePath, SourceRevision, SourceSha256,
+        StartupPlacement, Version, Versions,
     };
     use std::{os::unix::net::UnixListener, thread};
     use tempfile::TempDir;
@@ -331,7 +338,11 @@ mod tests {
             role_tools: RoleTools::Inherit,
             role_callers: RoleCallers::Any,
             context_provenance_vector: vec![ContextProvenance {
-                module_identity: ModuleIdentity("role-module".into()),
+                module_identity: ModuleIdentity {
+                    module_kind: ModuleKind::Role,
+                    module_subject: ModuleSubject("module".into()),
+                    versions: Versions::Single(Version(0)),
+                },
                 repository_name: RepositoryName("psyche-skills".into()),
                 source_revision: SourceRevision("revision".into()),
                 source_relative_path: SourceRelativePath("skills/role-module.md".into()),
