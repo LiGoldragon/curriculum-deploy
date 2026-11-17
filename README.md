@@ -7,7 +7,7 @@ define the skill catalog; the runtime does not duplicate it as a fixed count.
 
 ## Version
 
-0.10.0
+0.10.1
 
 ## Usage
 
@@ -51,9 +51,9 @@ Output is printed as datom on stdout. Faults are printed as datom on stderr.
 |---|---|---|
 | protos | 0.33.0 | c93b598 |
 | datom-codec | 0.33.1 | 09a0526 |
-| signal-curriculum-nexus | 0.1.0 | 4358aa1 |
-| curriculum | 0.1.0 | 1b6c454 |
-| ethos-zero | 27.0.0 | 8c95310 |
+| signal-curriculum-nexus | 0.1.0 | 4202d8b |
+| curriculum | 0.1.0 | 0c1280a |
+| ethos-zero | 28.0.0 | 970459d |
 
 ## Ethos declaration
 
